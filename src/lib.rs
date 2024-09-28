@@ -12,7 +12,7 @@ use metashrew_rs::{
 };
 use std::sync::Arc;
 use crate::message::MessageContext;
-use ordinals::{Runestone};
+use ordinals::{Artifact, Runestone};
 use anyhow::{anyhow, Result};
 
 pub mod message;
@@ -27,6 +27,7 @@ impl Protorune {
     let mut reader = &data[4..];
     let block = Block::consensus_decode(&mut reader).map_err(|_| anyhow!("failed to parse block"))?;
     IndexPointer::from_keyword("/blockhash/byheight/").select_value::<u32>(height).set(Arc::new(block.block_hash().as_byte_array().to_vec()));
+    let _runestones: Vec<Option<Artifact>> = block.txdata.iter().map(|tx| Runestone::decipher(tx)).collect();
     let _protocol_tag = T::protocol_tag();
     println!("got block");
     flush();

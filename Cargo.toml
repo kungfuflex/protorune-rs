@@ -9,10 +9,13 @@ repository = "https://github.com/kungfuflex/protorune-rs"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[workspace]
+members = [".", "crates/*"]
+
 [dependencies]
 anyhow = "1.0.89"
-bitcoin = "0.32.3"
+bitcoin = { version = "0.30.1", features = ["rand"] }
 metashrew-rs = { git = "https://github.com/sandshrewmetaprotocols/metashrew-rs" }
-ordinals = "0.0.10"
+ordinals = { version = "0.0.10", path = "crates/ordinals" }
 ruint = "1.12.3"
 wasm-bindgen = "0.2.92"
