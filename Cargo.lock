@@ -1073,6 +1073,9 @@ dependencies = [
  "bitcoin 0.30.2",
  "metashrew-rs",
  "ordinals 0.0.10",
+ "protobuf-codegen 3.5.1",
+ "protoc-bin-vendored",
+ "protoc-rust",
  "ruint",
  "wasm-bindgen",
 ]
