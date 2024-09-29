@@ -8,6 +8,7 @@ use ordinals::{Artifact, Runestone};
 use std::fmt::Write;
 use std::sync::Arc;
 use wasm_bindgen_test::*;
+mod constants;
 
 pub mod message;
 pub mod protoburn;
@@ -19,15 +20,19 @@ pub struct Protorune(());
 
 impl Protorune {
     pub fn index_block<T: MessageContext>(block: Block, height: u32) -> Result<()> {
-        IndexPointer::from_keyword("/blockhash/byheight/")
+        constants::HEIGHT_TO_BLOCKHASH
             .select_value::<u32>(height)
             .set(Arc::new(block.block_hash().as_byte_array().to_vec()));
+        constants::BLOCKHASH_TO_HEIGHT
+            .select(&block.block_hash().as_byte_array().to_vec())
+            .set_value::<u32>(height);
         flush();
         let _runestones: Vec<Option<Artifact>> = block
             .txdata
             .iter()
             .map(|tx| Runestone::decipher(tx))
             .collect();
+
         let _protocol_tag = T::protocol_tag();
         println!("got block");
         Ok(())
