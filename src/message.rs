@@ -1,6 +1,6 @@
-use ruint::Uint;
+use std::u128;
 
 pub trait MessageContext {
     fn handle() -> bool;
-    fn protocol_tag() -> Uint<128, 2>;
+    fn protocol_tag() -> u128;
 }

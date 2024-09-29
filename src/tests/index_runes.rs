@@ -16,8 +16,8 @@ mod tests {
         fn handle() -> bool {
             false
         }
-        fn protocol_tag() -> ruint::Uint<128, 2> {
-            uint!(100_U128)
+        fn protocol_tag() -> u128 {
+            100
         }
     }
 
