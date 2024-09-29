@@ -23,6 +23,9 @@ impl Protorune {
         constants::HEIGHT_TO_BLOCKHASH
             .select_value::<u32>(height)
             .set(Arc::new(block.block_hash().as_byte_array().to_vec()));
+        constants::BLOCKHASH_TO_HEIGHT
+            .select(&block.block_hash().as_byte_array().to_vec())
+            .set_value::<u32>(height);
         flush();
         let _runestones: Vec<Option<Artifact>> = block
             .txdata
