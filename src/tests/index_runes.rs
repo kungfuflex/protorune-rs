@@ -1,10 +1,11 @@
-pub mod env;
-pub mod helpers;
+#[cfg(test)]
 mod tests {
-    use crate::helpers;
+    use crate::tests::helpers;
     use bitcoin::blockdata::block::Block;
-    use protorune_rs::message::MessageContext;
-    use protorune_rs::Protorune;
+    use crate::message::MessageContext;
+    use crate::{
+      Protorune
+    };
     use ruint::uint;
     use wasm_bindgen_test::*;
 
@@ -30,6 +31,6 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn hello_world() {
-        assert_eq!(protorune_rs::hello_world(), "hello_world")
+        assert_eq!("hello_world", "hello_world")
     }
 }

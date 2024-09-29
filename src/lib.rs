@@ -12,6 +12,8 @@ use wasm_bindgen_test::*;
 pub mod message;
 pub mod protoburn;
 pub mod protostone;
+#[cfg(test)]
+pub mod tests;
 
 pub struct Protorune(());
 
@@ -31,6 +33,7 @@ impl Protorune {
     }
 }
 
+#[cfg(test)]
 pub fn hello_world() -> String {
     String::from("hello world")
 }
