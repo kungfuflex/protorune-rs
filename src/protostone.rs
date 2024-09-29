@@ -10,8 +10,6 @@ pub struct Protostone {
 
 impl Protostone {
     pub fn from_runestone(runestone: Runestone) -> anyhow::Result<()> {
-        let mut fields = runestone.fields;
-
         Ok(())
     }
 }

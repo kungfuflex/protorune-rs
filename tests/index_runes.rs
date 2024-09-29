@@ -1,28 +1,13 @@
-mod helpers;
-
+pub mod helpers;
 mod tests {
     use crate::helpers;
-
-    use super::helpers::create_block_with_coinbase;
+    use wasm_bindgen_test::*;
     use bitcoin::blockdata::block::Block;
     use protorune_rs::message::MessageContext;
-    use protorune_rs::{BlockInput, Protorune};
+    use protorune_rs::{Protorune};
     use ruint::uint;
 
-    struct BlockInputData {
-        height: u32,
-        block: Block,
-    }
-
-    impl BlockInputData {
-        fn serialize(&self) -> Vec<u8> {
-            let mut out = helpers::serialize_u32_little_endian(self.height);
-            let block_bytes = helpers::serialize_block(&self.block);
-            out.extend_from_slice(&block_bytes);
-            return out;
-        }
-    }
-    struct MyMessageContext;
+    struct MyMessageContext(());
 
     impl MessageContext for MyMessageContext {
         fn handle() -> bool {
@@ -33,24 +18,14 @@ mod tests {
         }
     }
 
-    struct MockBlockInput;
-
-    impl BlockInput for MockBlockInput {
-        fn get_input() -> Vec<u8> {
-            let height = 840000;
-            let block = create_block_with_coinbase(height);
-            let block_data = BlockInputData { height, block };
-            return block_data.serialize();
-        }
-    }
-
-    #[test]
+    #[wasm_bindgen_test]
     fn protorune_creation() {
-        assert!(Protorune::<MockBlockInput>::index_block::<MyMessageContext>().is_ok());
+        assert!(Protorune::index_block::<MyMessageContext>(helpers::create_block_with_coinbase(840000), 840000).is_ok());
     }
 
-    #[test]
+    #[wasm_bindgen_test]
     fn hello_world() {
         assert_eq!(protorune_rs::hello_world(), "hello_world")
     }
+
 }

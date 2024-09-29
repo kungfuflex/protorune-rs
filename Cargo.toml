@@ -20,6 +20,7 @@ ordinals = { version = "0.0.10", path = "crates/ordinals" }
 ruint = "1.12.3"
 wasm-bindgen = "0.2.92"
 byteorder = "1.5"
+wasm-bindgen-test = "0.3.43"
 
 [build-dependencies]
 protobuf-codegen = "3.4.0"
