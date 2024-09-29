@@ -9,6 +9,8 @@ use std::fmt::Write;
 use std::sync::Arc;
 
 pub mod message;
+pub mod protoburn;
+pub mod protostone;
 
 pub struct Protorune<InputT: BlockInput> {
     pub input_t: InputT,
