@@ -32,5 +32,5 @@ impl Protorune {
 }
 
 pub fn hello_world() -> String {
-  String::from("hello world")
+    String::from("hello world")
 }
