@@ -10,12 +10,25 @@ use std::sync::Arc;
 
 pub mod message;
 
-pub struct Protorune(());
+pub struct Protorune<InputT: BlockInput> {
+    pub input_t: InputT,
+}
 
-impl Protorune {
+pub trait BlockInput {
+    fn get_input() -> Vec<u8> {
+        input()
+    }
+}
+
+pub struct DefaultBlockInput;
+
+impl BlockInput for DefaultBlockInput {}
+
+impl<InputT: BlockInput> Protorune<InputT> {
     pub fn index_block<T: MessageContext>() -> Result<()> {
+        print!("INSIDE index block");
         initialize();
-        let data = input();
+        let data = InputT::get_input();
         let height = u32::from_le_bytes(
             (&data[0..4])
                 .try_into()
@@ -37,4 +50,8 @@ impl Protorune {
         flush();
         Ok(())
     }
+}
+
+pub fn hello_world() -> String {
+    String::from("hello world")
 }
