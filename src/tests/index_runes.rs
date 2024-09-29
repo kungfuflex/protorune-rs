@@ -7,6 +7,8 @@ mod tests {
       Protorune
     };
     use ruint::uint;
+    use std::fmt::Write;
+    use metashrew_rs::{println, stdio::{stdout}};
     use wasm_bindgen_test::*;
 
     struct MyMessageContext(());
@@ -32,5 +34,9 @@ mod tests {
     #[wasm_bindgen_test]
     fn hello_world() {
         assert_eq!("hello_world", "hello_world")
+    }
+    #[wasm_bindgen_test]
+    fn test_println() {
+      println!("test println");
     }
 }

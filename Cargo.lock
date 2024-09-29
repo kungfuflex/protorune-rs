@@ -744,7 +744,7 @@ checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 [[package]]
 name = "metashrew-rs"
 version = "0.1.0"
-source = "git+https://github.com/sandshrewmetaprotocols/metashrew-rs#d0189630f634ec9eb0e4cccb82a8e4661812e13c"
+source = "git+https://github.com/sandshrewmetaprotocols/metashrew-rs#96a26b92ef94ce4cd9205768d57d1cf418795402"
 dependencies = [
  "bitcoin 0.31.2",
  "bytes",
