@@ -3,11 +3,12 @@ use anyhow::Result;
 use bitcoin::blockdata::block::Block;
 use bitcoin::hashes::Hash;
 use metashrew_rs::{flush, println, stdout};
+use ordinals::Etching;
 use ordinals::{Artifact, Runestone};
 use std::fmt::Write;
 use std::sync::Arc;
 
-// pub mod balance_sheet; TODO: finish after finishing append functionality in index_pointer
+pub mod balance_sheet;
 pub mod constants;
 pub mod message;
 pub mod protoburn;
@@ -18,11 +19,14 @@ pub mod tests;
 pub struct Protorune(());
 
 impl Protorune {
-    pub fn index_runestone<T: MessageContext>(block: Block) {
-        let mut runestones: Vec<Artifact> = Vec::new();
+    pub fn index_etching(etching_optional: &Option<Etching>) {
+        if let Some(etching) = etching_optional {}
+    }
+
+    pub fn index_runestone<T: MessageContext>(block: &Block) {
         for tx in block.txdata.iter() {
-            if let Some(runestone) = Runestone::decipher(tx) {
-                runestones.push(runestone);
+            if let Some(Artifact::Runestone(runestone)) = Runestone::decipher(tx) {
+                Self::index_etching(&runestone.etching);
             }
         }
     }
@@ -36,7 +40,7 @@ impl Protorune {
             .set_value::<u32>(height);
 
         if (height >= constants::GENESIS) {
-            Self::index_runestone::<T>(block);
+            Self::index_runestone::<T>(&block);
         }
 
         let _protocol_tag = T::protocol_tag();
