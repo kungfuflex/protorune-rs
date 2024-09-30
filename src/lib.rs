@@ -8,7 +8,7 @@ use ordinals::{Artifact, Runestone};
 use std::fmt::Write;
 use std::sync::Arc;
 
-pub mod balance_sheet;
+// pub mod balance_sheet;
 pub mod constants;
 pub mod message;
 pub mod protoburn;
@@ -39,7 +39,7 @@ impl Protorune {
             .select(&block.block_hash().as_byte_array().to_vec())
             .set_value::<u32>(height);
 
-        if (height >= constants::GENESIS) {
+        if height >= constants::GENESIS {
             Self::index_runestone::<T>(&block);
         }
 
