@@ -1,9 +1,63 @@
 use metashrew_rs::index_pointer::IndexPointer;
+use ordinals::RuneId;
 use std::collections::HashMap;
-use std::u128;
+use std::ops::Deref;
+use std::sync::Arc;
+use std::{fmt, u128};
+
+#[derive(Eq, PartialEq, Hash, Clone, Copy)]
+pub struct ProtoruneRuneId(RuneId);
+
+impl ProtoruneRuneId {
+    pub fn new(inner: RuneId) -> Self {
+        ProtoruneRuneId(inner)
+    }
+}
+
+impl fmt::Display for ProtoruneRuneId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "RuneId {{ block: {}, tx: {} }}", self.block, self.tx)
+    }
+}
+
+impl Deref for ProtoruneRuneId {
+    type Target = RuneId;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<ProtoruneRuneId> for Arc<Vec<u8>> {
+    fn from(rune_id: ProtoruneRuneId) -> Self {
+        let mut bytes = Vec::new();
+
+        bytes.extend(&rune_id.block.to_le_bytes());
+        bytes.extend(&rune_id.tx.to_le_bytes());
+
+        // Wrap the Vec in an Arc
+        Arc::new(bytes)
+    }
+}
+
+impl From<Arc<Vec<u8>>> for ProtoruneRuneId {
+    fn from(arc_bytes: Arc<Vec<u8>>) -> Self {
+        // Convert the Arc<Vec<u8>> to a slice of bytes
+        let bytes: &[u8] = arc_bytes.as_ref();
+
+        // Extract the u32 and u64 from the byte slice
+        let block = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+        let tx = u32::from_le_bytes(bytes[8..12].try_into().unwrap());
+
+        // Return the deserialized MyStruct
+        ProtoruneRuneId {
+            0: RuneId { block, tx },
+        }
+    }
+}
 
 pub struct BalanceSheet {
-    balances: HashMap<String, u128>, // Using HashMap to map runes to their balances
+    balances: HashMap<ProtoruneRuneId, u128>, // Using HashMap to map runes to their balances
 }
 
 impl BalanceSheet {
@@ -22,20 +76,20 @@ impl BalanceSheet {
         base
     }
 
-    pub fn get(&self, rune: &str) -> u128 {
-        *self.balances.get(rune).unwrap_or(&(u128::from(0))) // Return 0 if rune not found
+    pub fn get(&self, rune: &ProtoruneRuneId) -> u128 {
+        *self.balances.get(rune).unwrap_or(&0u128) // Return 0 if rune not found
     }
 
-    pub fn set(&mut self, rune: String, value: u128) {
+    pub fn set(&mut self, rune: ProtoruneRuneId, value: u128) {
         self.balances.insert(rune, value);
     }
 
-    pub fn increase(&mut self, rune: String, value: u128) {
+    pub fn increase(&mut self, rune: ProtoruneRuneId, value: u128) {
         let current_balance = self.get(&rune);
         self.set(rune, current_balance + value);
     }
 
-    pub fn decrease(&mut self, rune: String, value: u128) -> bool {
+    pub fn decrease(&mut self, rune: ProtoruneRuneId, value: u128) -> bool {
         let current_balance = self.get(&rune);
         if current_balance < value {
             false
@@ -70,11 +124,10 @@ impl BalanceSheet {
         let balances_ptr = ptr.keyword("/balances");
 
         for (rune, balance) in &self.balances {
-            if *balance != u128::from(0) && !is_cenotaph {
-                runes_ptr.append(rune.as_bytes()); // Convert String to &[u8]
+            if *balance != 0u128 && !is_cenotaph {
+                runes_ptr.append((*rune).into());
 
-                let buf: Vec<u8> = balance.to_bytes(); // You need to implement this method
-                balances_ptr.append(buf.as_slice());
+                balances_ptr.append_value::<u128>(*balance);
             }
         }
     }
@@ -86,8 +139,8 @@ impl BalanceSheet {
         let mut result = BalanceSheet::new();
 
         for i in 0..length {
-            let rune = String::from_utf8_lossy(&runes_ptr.select_index(i).get()).to_string(); // Convert &[u8] to String
-            let balance = from_array_buffer(balances_ptr.select_index(i).get());
+            let rune = ProtoruneRuneId::from(runes_ptr.select_index(i).get());
+            let balance = balances_ptr.select_index(i).get_value::<u128>();
             result.set(rune, balance);
         }
         result

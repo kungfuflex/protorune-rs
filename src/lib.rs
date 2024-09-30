@@ -8,7 +8,7 @@ use ordinals::{Artifact, Runestone};
 use std::fmt::Write;
 use std::sync::Arc;
 
-// pub mod balance_sheet;
+pub mod balance_sheet;
 pub mod constants;
 pub mod message;
 pub mod protoburn;
