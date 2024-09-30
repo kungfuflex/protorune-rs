@@ -2,7 +2,7 @@ use {super::*, flag::Flag, message::Message, tag::Tag};
 
 mod flag;
 pub mod message;
-mod tag;
+pub mod tag;
 
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Runestone {
@@ -238,7 +238,7 @@ impl Runestone {
         None
     }
 
-    fn integers(payload: &[u8]) -> Result<Vec<u128>, varint::Error> {
+    pub fn integers(payload: &[u8]) -> Result<Vec<u128>, varint::Error> {
         let mut integers = Vec::new();
         let mut i = 0;
 
@@ -1146,6 +1146,7 @@ mod tests {
                 }),
                 pointer: Some(0),
                 mint: Some(RuneId::new(1, 1).unwrap()),
+                proto: None
             }),
         );
     }
@@ -1731,6 +1732,7 @@ mod tests {
                 }),
                 mint: Some(RuneId::new(17, 18).unwrap()),
                 pointer: Some(0),
+                proto: None,
             },
             &[
                 Tag::Flags.into(),

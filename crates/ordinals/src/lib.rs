@@ -52,7 +52,7 @@ mod pile;
 mod rarity;
 mod rune;
 mod rune_id;
-mod runestone;
+pub mod runestone;
 pub mod sat;
 pub mod sat_point;
 pub mod spaced_rune;

@@ -1,13 +1,13 @@
 use super::*;
 
-pub(super) struct Message {
-    pub(super) flaw: Option<Flaw>,
-    pub(super) edicts: Vec<Edict>,
-    pub(super) fields: HashMap<u128, VecDeque<u128>>,
+pub struct Message {
+    pub flaw: Option<Flaw>,
+    pub edicts: Vec<Edict>,
+    pub fields: HashMap<u128, VecDeque<u128>>,
 }
 
 impl Message {
-    pub(super) fn from_integers(tx: &Transaction, payload: &[u128]) -> Self {
+    pub fn from_integers(tx: &Transaction, payload: &[u128]) -> Self {
         let mut edicts = Vec::new();
         let mut fields = HashMap::<u128, VecDeque<u128>>::new();
         let mut flaw = None;
