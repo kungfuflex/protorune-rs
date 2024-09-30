@@ -1,15 +1,14 @@
 use crate::message::MessageContext;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use bitcoin::blockdata::block::Block;
-use bitcoin::consensus::Decodable;
 use bitcoin::hashes::Hash;
-use metashrew_rs::{flush, index_pointer::IndexPointer, initialize, input, println, stdout};
+use metashrew_rs::{flush, println, stdout};
 use ordinals::{Artifact, Runestone};
 use std::fmt::Write;
 use std::sync::Arc;
-use wasm_bindgen_test::*;
-mod constants;
 
+// pub mod balance_sheet; TODO: finish after finishing append functionality in index_pointer
+pub mod constants;
 pub mod message;
 pub mod protoburn;
 pub mod protostone;
@@ -45,9 +44,4 @@ impl Protorune {
         flush();
         Ok(())
     }
-}
-
-#[cfg(test)]
-pub fn hello_world() -> String {
-    String::from("hello world")
 }
