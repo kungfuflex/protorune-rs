@@ -24,16 +24,23 @@ pub mod view;
 pub struct Protorune(());
 
 impl Protorune {
-    pub fn index_etching(etching_optional: &Option<Etching>) {
-        if let Some(etching) = etching_optional {}
+    pub fn index_runestone<T: MessageContext>(tx: &Transaction, runestone: &Runestone, height: u32) -> Result<()> {
+      if let Some(etching) = runestone.etching.as_ref() {
+        Self::index_etching(etching)?;
+      }
+      Ok(())
+    }
+    pub fn index_etching(etching: &Etching) -> Result<()> {
+      Ok(())
     }
 
-    pub fn index_runestone<T: MessageContext>(block: &Block) {
+    pub fn index_unspendables<T: MessageContext>(block: &Block, height: u32) -> Result<()> {
         for tx in block.txdata.iter() {
-            if let Some(Artifact::Runestone(runestone)) = Runestone::decipher(tx) {
-                Self::index_etching(&runestone.etching);
+            if let Some(Artifact::Runestone(ref runestone)) = Runestone::decipher(tx) {
+                Self::index_runestone::<T>(tx, runestone, height)?
             }
         }
+        Ok(())
     }
     pub fn index_spendables(txdata: &Vec<Transaction>) -> Result<()> {
         for transaction in txdata {
@@ -85,7 +92,7 @@ impl Protorune {
         Self::index_spendables(&block.txdata)?;
         Self::index_transaction_ids(&block, height)?;
         Self::index_outpoints(&block, height)?;
-        Self::index_runestone::<T>(&block);
+        Self::index_unspendables::<T>(&block, height)?;
         let _protocol_tag = T::protocol_tag();
         println!("got block");
         flush();
