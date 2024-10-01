@@ -55,9 +55,10 @@ impl Protorune {
                     let address = Address::from_script(&output_script, constants::NETWORK).unwrap();
                     constants::OUTPOINTS_FOR_ADDRESS
                         .select(&address.to_string().into_bytes())
-                        .set(Arc::new(outpoint_bytes));
-                } else {
-                    println!("Failed to decode address");
+                        .append(Arc::new(outpoint_bytes.clone()));
+                    constants::OUTPOINT_SPENDABLE_BY
+                        .select(&outpoint_bytes.clone())
+                        .set(Arc::new(address.to_string().into_bytes()));
                 }
             }
         }

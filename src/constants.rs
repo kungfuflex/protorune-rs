@@ -40,11 +40,11 @@ pub static OUTPOINTS_FOR_ADDRESS: Lazy<IndexPointer> = Lazy::new(||
     IndexPointer::from_keyword("/outpoint/byaddress/")
 );
 
-pub static OUTPOINT_SPENDABLE_BY: Lazy<AtomicPtr<Vec<u8>>> = Lazy::new(||
-    AtomicPtr::from_keyword("/outpoint/spendableby/")
+pub static OUTPOINT_SPENDABLE_BY: Lazy<IndexPointer> = Lazy::new(||
+    IndexPointer::from_keyword("/outpoint/spendableby/")
 );
-pub static OUTPOINT_TO_OUTPUT: Lazy<AtomicPtr<Vec<u8>>> = Lazy::new(||
-    AtomicPtr::from_keyword("/output/byoutpoint/")
+pub static OUTPOINT_TO_OUTPUT: Lazy<IndexPointer> = Lazy::new(||
+    IndexPointer::from_keyword("/output/byoutpoint/")
 );
 pub static OUTPOINT_TO_HEIGHT: Lazy<IndexPointer> = Lazy::new(||
     IndexPointer::from_keyword("/height/byoutpoint/")
