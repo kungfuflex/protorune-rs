@@ -9,6 +9,7 @@ mod tests {
     use bitcoin::{blockdata::block::Block, Address};
     use bitcoin::{OutPoint, Txid};
     use metashrew::{
+        get_cache,
         flush,
         index_pointer::{IndexPointer, KeyValuePointer},
         println,
@@ -19,6 +20,7 @@ mod tests {
     use std::str::FromStr;
     use std::sync::Arc;
     use wasm_bindgen_test::*;
+    use hex;
 
     struct MyMessageContext(());
 
@@ -69,6 +71,7 @@ mod tests {
     fn spendable_by_address() {
         let test_block = helpers::create_block_with_tx();
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
+        get_cache().iter().for_each(|(k, v)| println!("{}", &hex::encode(k.as_ref())));
         let outpoint: OutPoint = OutPoint {
             txid: Txid::from_str(
                 "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32",

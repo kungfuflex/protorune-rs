@@ -1068,7 +1068,7 @@ checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 [[package]]
 name = "metashrew"
 version = "0.1.0"
-source = "git+https://github.com/sandshrewmetaprotocols/metashrew-rs#920767105169118197b052bf4078760051fc1e1d"
+source = "git+https://github.com/sandshrewmetaprotocols/metashrew-rs#f4ff5feb2efab8365f3743bfe7f8c696b3f8aba3"
 dependencies = [
  "anyhow",
  "bitcoin 0.31.2",
@@ -1503,6 +1503,7 @@ dependencies = [
  "bitcoin 0.30.2",
  "byteorder",
  "getrandom",
+ "hex",
  "metashrew",
  "once_cell",
  "ordinals 0.0.10",
