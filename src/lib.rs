@@ -11,6 +11,7 @@ use std::fmt::Write;
 use std::sync::Arc;
 
 pub mod balance_sheet;
+pub mod byte_utils;
 pub mod constants;
 pub mod message;
 pub mod protoburn;
