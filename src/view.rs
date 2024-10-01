@@ -1,10 +1,11 @@
 mod view {
     use std::sync::Arc;
+    use metashrew_rs::index_pointer::KeyValuePointer;
     use crate::constants;
 
-    pub fn outpoints_by_address(address: Vec<u8>) {
+    pub fn outpoints_by_address(address: Vec<u8>) -> Vec<Arc<Vec<u8>>> {
         let outpoints = constants::OUTPOINTS_FOR_ADDRESS.select(&address).get_list();
-        let ret: Vec<Arc<Vec<u8>>> = [];
+        let mut ret: Vec<Arc<Vec<u8>>> = Vec::new();
         for outpoint in outpoints {
             let _address = constants::OUTPOINT_SPENDABLE_BY.select(&outpoint).get();
             if address.len() == _address.len() {

@@ -8,7 +8,12 @@ mod tests {
     use bitcoin::{ OutPoint, Txid };
     use bitcoin::{ blockdata::block::Block, Address };
     use bitcoin::hashes::Hash;
-    use metashrew_rs::{ flush, index_pointer::{IndexPointer, KeyValuePointer}, println, stdio::stdout };
+    use metashrew_rs::{
+        flush,
+        index_pointer::{ IndexPointer, KeyValuePointer },
+        println,
+        stdio::stdout,
+    };
     use ruint::uint;
     use std::fmt::Write;
     use std::str::FromStr;
@@ -37,10 +42,8 @@ mod tests {
     fn display_list_as_hex(data: Vec<Arc<Vec<u8>>>) -> String {
         let mut hex_string = String::new();
 
-        // Iterate through each Arc<Vec<u8>> in the Vec
         for arc_data in data {
-            // Dereference the Arc and iterate through the inner Vec<u8>
-            for byte in arc_data.iter() {
+            for byte in arc_data.to_vec().iter() {
                 write!(&mut hex_string, "{:02x}", byte).expect("Unable to write");
             }
         }
@@ -64,25 +67,41 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn outpoints_by_address() {
+    fn spendable_by_address() {
         let test_block = helpers::create_block_with_tx();
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
-        let test_val = constants::OUTPOINTS_FOR_ADDRESS
-            .select(&"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes())
-            .get_list();
-
-        let hex_str = display_list_as_hex(test_val.clone());
         let outpoint: OutPoint = OutPoint {
             txid: Txid::from_str(
                 "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32"
             ).unwrap(),
             vout: 0,
         };
+        let test_val = constants::OUTPOINT_SPENDABLE_BY.select(&serialize(&outpoint)).get();
+        let addr_str = display_vec_as_hex(test_val.to_vec());
+        let _addr_str: String = display_vec_as_hex(
+            "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes()
+        );
+        assert_eq!(_addr_str, addr_str);
+    }
+
+    #[wasm_bindgen_test]
+    fn outpoints_by_address() {
+        let test_block = helpers::create_block_with_tx();
+        let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
+        let outpoint: OutPoint = OutPoint {
+            txid: Txid::from_str(
+                "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32"
+            ).unwrap(),
+            vout: 0,
+        };
+        let test_val = constants::OUTPOINTS_FOR_ADDRESS
+            .select(&"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes())
+            .get_list();
+        let list_str: String = display_list_as_hex(test_val);
 
         let test_outpoint: Vec<u8> = serialize(&outpoint);
         let outpoint_hex: String = display_vec_as_hex(test_outpoint);
 
-        assert_eq!(hex_str, outpoint_hex);
+        assert_eq!(list_str, outpoint_hex);
     }
-
 }
