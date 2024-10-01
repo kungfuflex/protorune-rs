@@ -8,7 +8,7 @@ mod tests {
     use bitcoin::{ OutPoint, Txid };
     use bitcoin::{ blockdata::block::Block, Address };
     use bitcoin::hashes::Hash;
-    use metashrew_rs::{ flush, index_pointer::IndexPointer, println, stdio::stdout };
+    use metashrew_rs::{ flush, index_pointer::{IndexPointer, KeyValuePointer}, println, stdio::stdout };
     use ruint::uint;
     use std::fmt::Write;
     use std::str::FromStr;
@@ -85,12 +85,4 @@ mod tests {
         assert_eq!(hex_str, outpoint_hex);
     }
 
-    #[wasm_bindgen_test]
-    fn hello_world() {
-        assert_eq!("hello_world", "hello_world")
-    }
-    #[wasm_bindgen_test]
-    fn test_println() {
-        println!("test println");
-    }
 }
