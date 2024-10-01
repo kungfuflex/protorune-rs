@@ -72,7 +72,6 @@ mod tests {
     fn spendable_by_address() {
         let test_block = helpers::create_block_with_tx();
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
-        get_cache().iter().for_each(|(k, v)| println!("{}", &format_key(k.as_ref())));
         let outpoint: OutPoint = OutPoint {
             txid: Txid::from_str(
                 "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32",
@@ -104,16 +103,15 @@ mod tests {
             vout: 0,
         };
         let test_val = constants::OUTPOINTS_FOR_ADDRESS
-            .select(
-                &"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"
-                    .to_string()
-                    .into_bytes(),
-            )
+            .keyword("bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu")
             .get_list();
         let list_str: String = display_list_as_hex(test_val);
 
         let test_outpoint: Vec<u8> = serialize(&outpoint);
         let outpoint_hex: String = display_vec_as_hex(test_outpoint);
+        get_cache().iter().for_each(|(k, v)| println!("{}", &format_key(k.as_ref())));
+        println!("list_str: {}", &list_str);
+        println!("outpoint_hex: {}", &outpoint_hex);
 
         assert_eq!(list_str, outpoint_hex);
     }
