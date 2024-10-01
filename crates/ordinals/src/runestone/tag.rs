@@ -24,10 +24,15 @@ pub enum Tag {
     Nop = 127,
 
     Protocol = 16383,
+    Burn = 83,
+    Message = 81,
+    Refund = 93,
+    ProtoPointer = 91,
+    From = 95,
 }
 
 impl Tag {
-    pub(super) fn take_all(self, fields: &mut HashMap<u128, VecDeque<u128>>) -> Option<Vec<u128>> {
+    pub fn take_all(self, fields: &mut HashMap<u128, VecDeque<u128>>) -> Option<Vec<u128>> {
         let field = fields.get_mut(&self.into())?;
 
         let mut values: Vec<u128> = vec![];
@@ -38,7 +43,7 @@ impl Tag {
 
         Some(values)
     }
-    pub(super) fn take<const N: usize, T>(
+    pub fn take<const N: usize, T>(
         self,
         fields: &mut HashMap<u128, VecDeque<u128>>,
         with: impl Fn([u128; N]) -> Option<T>,
