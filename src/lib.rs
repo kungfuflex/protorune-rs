@@ -66,6 +66,15 @@ impl Protorune {
       }
       Ok(())
     }
+    pub fn index_outpoints(block: &Block, height: u32) -> Result<()> {
+      for tx in &block.txdata {
+        let ptr = constants::OUTPOINT_TO_HEIGHT.select(&tx.txid().as_byte_array().to_vec());
+        for i in 0..tx.output.len() {
+          ptr.select_value(i as u32).set_value(height);
+        }
+      }
+      Ok(())
+    }
     pub fn index_block<T: MessageContext>(block: Block, height: u32) -> Result<()> {
         constants::HEIGHT_TO_BLOCKHASH
             .select_value::<u32>(height)
@@ -75,6 +84,7 @@ impl Protorune {
             .set_value::<u32>(height);
         Self::index_spendables(&block.txdata)?;
         Self::index_transaction_ids(&block, height)?;
+        Self::index_outpoints(&block, height)?;
         Self::index_runestone::<T>(&block);
         let _protocol_tag = T::protocol_tag();
         println!("got block");
