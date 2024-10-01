@@ -1,4 +1,4 @@
-use metashrew_rs::byte_view::{shrink_back, ByteView};
+use metashrew::byte_view::{shrink_back, ByteView};
 
 pub trait ByteUtils {
     fn to_aligned_bytes(v: Self) -> Vec<u8>;

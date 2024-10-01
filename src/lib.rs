@@ -1,15 +1,15 @@
 use crate::message::MessageContext;
 use anyhow::Result;
-use bitcoin::consensus::encode::serialize;
-use bitcoin::{ block, Address, OutPoint, Script, ScriptBuf };
 use bitcoin::blockdata::block::Block;
+use bitcoin::consensus::encode::serialize;
 use bitcoin::hashes::Hash;
-use metashrew_rs::{ flush, println, stdout };
+use bitcoin::{block, Address, OutPoint, Script, ScriptBuf};
+use metashrew::index_pointer::KeyValuePointer;
+use metashrew::{flush, println, stdout};
 use ordinals::Etching;
-use ordinals::{ Artifact, Runestone };
+use ordinals::{Artifact, Runestone};
 use std::fmt::Write;
 use std::sync::Arc;
-use metashrew_rs::index_pointer::{ KeyValuePointer };
 
 pub mod balance_sheet;
 pub mod byte_utils;
@@ -17,16 +17,15 @@ pub mod constants;
 pub mod message;
 pub mod protoburn;
 pub mod protostone;
-pub mod view;
 #[cfg(test)]
 pub mod tests;
+pub mod view;
 
 pub struct Protorune(());
 
 impl Protorune {
     pub fn index_etching(etching_optional: &Option<Etching>) {
-        if let Some(etching) = etching_optional {
-        }
+        if let Some(etching) = etching_optional {}
     }
 
     pub fn index_runestone<T: MessageContext>(block: &Block) {

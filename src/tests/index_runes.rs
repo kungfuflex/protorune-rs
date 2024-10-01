@@ -1,16 +1,16 @@
 #[cfg(test)]
 mod tests {
+    use crate::constants;
     use crate::message::MessageContext;
     use crate::tests::helpers;
     use crate::Protorune;
-    use crate::constants;
     use bitcoin::consensus::serialize;
-    use bitcoin::{ OutPoint, Txid };
-    use bitcoin::{ blockdata::block::Block, Address };
     use bitcoin::hashes::Hash;
-    use metashrew_rs::{
+    use bitcoin::{blockdata::block::Block, Address};
+    use bitcoin::{OutPoint, Txid};
+    use metashrew::{
         flush,
-        index_pointer::{ IndexPointer, KeyValuePointer },
+        index_pointer::{IndexPointer, KeyValuePointer},
         println,
         stdio::stdout,
     };
@@ -54,9 +54,8 @@ mod tests {
     #[wasm_bindgen_test]
     fn protorune_creation() {
         let test_block = helpers::create_block_with_coinbase(840000);
-        let expected_block_hash = display_vec_as_hex(
-            test_block.block_hash().as_byte_array().to_vec()
-        );
+        let expected_block_hash =
+            display_vec_as_hex(test_block.block_hash().as_byte_array().to_vec());
         let _ = Protorune::index_block::<MyMessageContext>(test_block, 840000);
         let test_val = IndexPointer::from_keyword("/blockhash/byheight/")
             .select_value(840000 as u32)
@@ -72,14 +71,19 @@ mod tests {
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
         let outpoint: OutPoint = OutPoint {
             txid: Txid::from_str(
-                "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32"
-            ).unwrap(),
+                "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32",
+            )
+            .unwrap(),
             vout: 0,
         };
-        let test_val = constants::OUTPOINT_SPENDABLE_BY.select(&serialize(&outpoint)).get();
+        let test_val = constants::OUTPOINT_SPENDABLE_BY
+            .select(&serialize(&outpoint))
+            .get();
         let addr_str = display_vec_as_hex(test_val.to_vec());
         let _addr_str: String = display_vec_as_hex(
-            "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes()
+            "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"
+                .to_string()
+                .into_bytes(),
         );
         assert_eq!(_addr_str, addr_str);
     }
@@ -90,12 +94,17 @@ mod tests {
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
         let outpoint: OutPoint = OutPoint {
             txid: Txid::from_str(
-                "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32"
-            ).unwrap(),
+                "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32",
+            )
+            .unwrap(),
             vout: 0,
         };
         let test_val = constants::OUTPOINTS_FOR_ADDRESS
-            .select(&"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes())
+            .select(
+                &"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"
+                    .to_string()
+                    .into_bytes(),
+            )
             .get_list();
         let list_str: String = display_list_as_hex(test_val);
 

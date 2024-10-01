@@ -1,11 +1,11 @@
 use bitcoin::address::NetworkChecked;
-use bitcoin::blockdata::block::{ Block, Header, Version };
+use bitcoin::blockdata::block::{Block, Header, Version};
 use bitcoin::blockdata::script::ScriptBuf;
-use bitcoin::blockdata::transaction::{ Transaction, TxIn, TxOut };
+use bitcoin::blockdata::transaction::{Transaction, TxIn, TxOut};
 use bitcoin::hashes::Hash;
 use bitcoin::string::FromHexStr;
-use bitcoin::{ Address, Amount, BlockHash, OutPoint, Sequence, Witness };
-use byteorder::{ ByteOrder, LittleEndian };
+use bitcoin::{Address, Amount, BlockHash, OutPoint, Sequence, Witness};
+use byteorder::{ByteOrder, LittleEndian};
 use core::str::FromStr;
 
 pub fn serialize_u32_little_endian(value: u32) -> Vec<u8> {
@@ -52,14 +52,15 @@ pub fn create_block_with_coinbase(height: u32) -> Block {
 
     // Define block header fields
     let version = Version::from_consensus(2);
-    let previous_blockhash = BlockHash::from_str(
-        "00000000000000000005c3b409b4f17f9b3a97ed46d1a63d3f660d24168b2b3e"
-    ).unwrap();
+    let previous_blockhash =
+        BlockHash::from_str("00000000000000000005c3b409b4f17f9b3a97ed46d1a63d3f660d24168b2b3e")
+            .unwrap();
 
     // let merkle_root_hash = bitcoin::merkle_tree::calculate_root(&[coinbase_tx.clone()]);
-    let merkle_root = bitcoin::hash_types::TxMerkleNode
-        ::from_str("4e07408562b4b5a9c0555f0671e0d2b6c5764c1d2a5e97c1d7f36f7c91e4c77a")
-        .unwrap();
+    let merkle_root = bitcoin::hash_types::TxMerkleNode::from_str(
+        "4e07408562b4b5a9c0555f0671e0d2b6c5764c1d2a5e97c1d7f36f7c91e4c77a",
+    )
+    .unwrap();
     let time = 1231006505; // Example timestamp (January 3, 2009)
     let bits = bitcoin::CompactTarget::from_hex_str("0x1234").unwrap(); // Example bits (difficulty)
     let nonce = 2083236893; // Example nonce
@@ -88,9 +89,10 @@ pub fn serialize_block(block: &Block) -> [u8; 32] {
 pub fn create_test_transaction() -> Transaction {
     // Input: Dummy previous output to use as input (in a real transaction, this would refer to an existing UTXO)
     let previous_output = OutPoint {
-        txid: bitcoin::Txid
-            ::from_str("0000000000000000000000000000000000000000000000000000000000000000")
-            .unwrap(), // dummy TXID
+        txid: bitcoin::Txid::from_str(
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .unwrap(), // dummy TXID
         vout: 0, // refers to the output index from the above TXID
     };
 
@@ -118,7 +120,7 @@ pub fn create_test_transaction() -> Transaction {
 
     let txout = TxOut {
         value: Amount::from_sat(100_000_000).to_sat(), // 1 BTC in satoshis
-        script_pubkey, // script corresponding to the above address
+        script_pubkey,                                 // script corresponding to the above address
     };
 
     // // Create the transaction
@@ -136,14 +138,15 @@ pub fn create_block_with_tx() -> Block {
 
     // Define block header fields
     let version = Version::from_consensus(2);
-    let previous_blockhash = BlockHash::from_str(
-        "00000000000000000005c3b409b4f17f9b3a97ed46d1a63d3f660d24168b2b3e"
-    ).unwrap();
+    let previous_blockhash =
+        BlockHash::from_str("00000000000000000005c3b409b4f17f9b3a97ed46d1a63d3f660d24168b2b3e")
+            .unwrap();
 
     // let merkle_root_hash = bitcoin::merkle_tree::calculate_root(&[coinbase_tx.clone()]);
-    let merkle_root = bitcoin::hash_types::TxMerkleNode
-        ::from_str("4e07408562b4b5a9c0555f0671e0d2b6c5764c1d2a5e97c1d7f36f7c91e4c77a")
-        .unwrap();
+    let merkle_root = bitcoin::hash_types::TxMerkleNode::from_str(
+        "4e07408562b4b5a9c0555f0671e0d2b6c5764c1d2a5e97c1d7f36f7c91e4c77a",
+    )
+    .unwrap();
     let time = 1231006505; // Example timestamp (January 3, 2009)
     let bits = bitcoin::CompactTarget::from_hex_str("0x1234").unwrap(); // Example bits (difficulty)
     let nonce = 2083236893; // Example nonce
