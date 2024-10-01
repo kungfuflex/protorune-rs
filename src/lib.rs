@@ -1,10 +1,12 @@
 use crate::message::MessageContext;
 use anyhow::Result;
+use bitcoin::consensus::encode::serialize;
+use bitcoin::{ block, Address, OutPoint, Script, ScriptBuf };
 use bitcoin::blockdata::block::Block;
 use bitcoin::hashes::Hash;
-use metashrew_rs::{flush, println, stdout};
+use metashrew_rs::{ flush, println, stdout };
 use ordinals::Etching;
-use ordinals::{Artifact, Runestone};
+use ordinals::{ Artifact, Runestone };
 use std::fmt::Write;
 use std::sync::Arc;
 
@@ -20,7 +22,8 @@ pub struct Protorune(());
 
 impl Protorune {
     pub fn index_etching(etching_optional: &Option<Etching>) {
-        if let Some(etching) = etching_optional {}
+        if let Some(etching) = etching_optional {
+        }
     }
 
     pub fn index_runestone<T: MessageContext>(block: &Block) {
@@ -39,6 +42,25 @@ impl Protorune {
             .select(&block.block_hash().as_byte_array().to_vec())
             .set_value::<u32>(height);
 
+        for transaction in &block.txdata {
+            let tx_id = transaction.txid();
+            for (index, output) in transaction.output.iter().enumerate() {
+                let outpoint = OutPoint {
+                    txid: tx_id.clone(),
+                    vout: index as u32,
+                };
+                let output_script: &ScriptBuf = &output.script_pubkey;
+                if Address::from_script(&output_script, constants::NETWORK).is_ok() {
+                    let outpoint_bytes: Vec<u8> = serialize(&outpoint);
+                    let address = Address::from_script(&output_script, constants::NETWORK).unwrap();
+                    constants::OUTPOINTS_FOR_ADDRESS
+                        .select(&address.to_string().into_bytes())
+                        .set(Arc::new(outpoint_bytes));
+                } else {
+                    println!("Failed to decode address");
+                }
+            }
+        }
         if height >= constants::GENESIS {
             Self::index_runestone::<T>(&block);
         }
