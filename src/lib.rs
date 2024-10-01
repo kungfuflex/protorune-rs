@@ -3,7 +3,7 @@ use anyhow::Result;
 use bitcoin::blockdata::block::Block;
 use bitcoin::consensus::encode::serialize;
 use bitcoin::hashes::Hash;
-use bitcoin::{block, Address, OutPoint, Script, ScriptBuf};
+use bitcoin::{block, Transaction, Address, OutPoint, Script, ScriptBuf};
 use metashrew::index_pointer::KeyValuePointer;
 use metashrew::{flush, println, stdout};
 use ordinals::Etching;
@@ -35,15 +35,8 @@ impl Protorune {
             }
         }
     }
-
-    pub fn index_block<T: MessageContext>(block: Block, height: u32) -> Result<()> {
-        constants::HEIGHT_TO_BLOCKHASH
-            .select_value::<u32>(height)
-            .set(Arc::new(block.block_hash().as_byte_array().to_vec()));
-        constants::BLOCKHASH_TO_HEIGHT
-            .select(&block.block_hash().as_byte_array().to_vec())
-            .set_value::<u32>(height);
-        for transaction in &block.txdata {
+    pub fn index_spendables(txdata: &Vec<Transaction>) -> Result<()> {
+        for transaction in txdata {
             let tx_id = transaction.txid();
             for (index, output) in transaction.output.iter().enumerate() {
                 let outpoint = OutPoint {
@@ -63,6 +56,25 @@ impl Protorune {
                 }
             }
         }
+        Ok(())
+    }
+
+    pub fn index_transaction_ids(block: &Block, height: u32) -> Result<()> {
+      let ptr = constants::HEIGHT_TO_TRANSACTION_IDS.select_value::<u32>(height);
+      for tx in &block.txdata {
+        ptr.append(Arc::new(tx.txid().as_byte_array().to_vec()));
+      }
+      Ok(())
+    }
+    pub fn index_block<T: MessageContext>(block: Block, height: u32) -> Result<()> {
+        constants::HEIGHT_TO_BLOCKHASH
+            .select_value::<u32>(height)
+            .set(Arc::new(block.block_hash().as_byte_array().to_vec()));
+        constants::BLOCKHASH_TO_HEIGHT
+            .select(&block.block_hash().as_byte_array().to_vec())
+            .set_value::<u32>(height);
+        Self::index_spendables(&block.txdata)?;
+        Self::index_transaction_ids(&block, height)?;
         Self::index_runestone::<T>(&block);
         let _protocol_tag = T::protocol_tag();
         println!("got block");
