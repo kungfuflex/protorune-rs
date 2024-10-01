@@ -4,12 +4,12 @@ use bitcoin::consensus::encode::serialize;
 use bitcoin::{ block, Address, OutPoint, Script, ScriptBuf };
 use bitcoin::blockdata::block::Block;
 use bitcoin::hashes::Hash;
-use metashrew_rs::{ flush, println, stdout };
+use metashrew::{ flush, println, stdout };
 use ordinals::Etching;
 use ordinals::{ Artifact, Runestone };
 use std::fmt::Write;
 use std::sync::Arc;
-use metashrew_rs::index_pointer::{KeyValuePointer};
+use metashrew::index_pointer::{KeyValuePointer};
 
 pub mod balance_sheet;
 pub mod byte_utils;

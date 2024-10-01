@@ -8,7 +8,7 @@ mod tests {
     use bitcoin::{ OutPoint, Txid };
     use bitcoin::{ blockdata::block::Block, Address };
     use bitcoin::hashes::Hash;
-    use metashrew_rs::{ flush, index_pointer::{IndexPointer, KeyValuePointer}, println, stdio::stdout };
+    use metashrew::{ flush, index_pointer::{IndexPointer, KeyValuePointer}, println, stdio::stdout };
     use ruint::uint;
     use std::fmt::Write;
     use std::str::FromStr;

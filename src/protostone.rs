@@ -1,7 +1,7 @@
 use crate::byte_utils::ByteUtils;
 use crate::protoburn::Protoburn;
 use bitcoin::Transaction;
-use metashrew_rs::byte_view::shrink_back;
+use metashrew::byte_view::shrink_back;
 use ordinals::{
     runestone::{message::Message, tag::Tag},
     varint, Edict, Runestone,

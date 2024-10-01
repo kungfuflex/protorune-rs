@@ -1,4 +1,4 @@
-use metashrew_rs::index_pointer::{IndexPointer, KeyValuePointer};
+use metashrew::index_pointer::{IndexPointer, KeyValuePointer};
 use ordinals::RuneId;
 use std::collections::HashMap;
 use std::ops::Deref;

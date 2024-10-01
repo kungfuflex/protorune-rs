@@ -1,7 +1,7 @@
 use bitcoin::blockdata::block::Block;
 use bitcoin::hashes::Hash;
 use bitcoin::Network::{ Bitcoin, Regtest };
-use metashrew_rs::index_pointer::{IndexPointer, KeyValuePointer};
+use metashrew::index_pointer::{IndexPointer, KeyValuePointer};
 use once_cell::sync::Lazy;
 use std::sync::atomic::AtomicPtr;
 use std::sync::Arc;
