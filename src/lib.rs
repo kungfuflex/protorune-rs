@@ -9,7 +9,7 @@ use ordinals::Etching;
 use ordinals::{ Artifact, Runestone };
 use std::fmt::Write;
 use std::sync::Arc;
-use metashrew_rs::index_pointer::{KeyValuePointer};
+use metashrew_rs::index_pointer::{ KeyValuePointer };
 
 pub mod balance_sheet;
 pub mod byte_utils;
@@ -17,6 +17,7 @@ pub mod constants;
 pub mod message;
 pub mod protoburn;
 pub mod protostone;
+pub mod view;
 #[cfg(test)]
 pub mod tests;
 
