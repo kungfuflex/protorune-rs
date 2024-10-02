@@ -62,6 +62,9 @@ mod tests {
             test_block.block_hash().as_byte_array().to_vec()
         );
         let _ = Protorune::index_block::<MyMessageContext>(test_block, 840000);
+        constants::OUTPOINTS_FOR_ADDRESS
+            .keyword("bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu")
+            .set(Arc::new(Vec::new()));
         let test_val = IndexPointer::from_keyword("/blockhash/byheight/")
             .select_value(840000 as u32)
             .get();
@@ -72,9 +75,11 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn spendable_by_address() {
-        get_cache().to_owned().clear();
         let test_block = helpers::create_block_with_tx();
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
+        constants::OUTPOINTS_FOR_ADDRESS
+            .keyword("bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu")
+            .set(Arc::new(Vec::new()));
         let outpoint: OutPoint = OutPoint {
             txid: Txid::from_str(
                 "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32"
@@ -86,6 +91,7 @@ mod tests {
         let _addr_str: String = display_vec_as_hex(
             "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes()
         );
+
         let string = Protorune::outpoints_by_address(
             "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes()
         );
@@ -97,6 +103,9 @@ mod tests {
     fn outpoints_by_address() {
         get_cache().to_owned().clear();
         let test_block = helpers::create_block_with_tx();
+        constants::OUTPOINTS_FOR_ADDRESS
+            .keyword("bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu")
+            .set(Arc::new(Vec::new()));
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
         let outpoint: OutPoint = OutPoint {
             txid: Txid::from_str(
