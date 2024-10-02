@@ -6,6 +6,7 @@ use bitcoin::hashes::Hash;
 use bitcoin::string::FromHexStr;
 use bitcoin::{ Address, Amount, BlockHash, OutPoint, Sequence, Witness };
 use byteorder::{ ByteOrder, LittleEndian };
+use ordinals::{ Etching, Rune, Runestone };
 use core::str::FromStr;
 
 pub fn serialize_u32_little_endian(value: u32) -> Vec<u8> {
@@ -123,9 +124,73 @@ pub fn create_test_transaction() -> Transaction {
     }
 }
 
-pub fn create_block_with_tx() -> Block {
-    // Create the coinbase transaction
-    let coinbase_tx = create_test_transaction();
+pub fn create_rune_transaction() -> Transaction {
+    let previous_output = OutPoint {
+        txid: bitcoin::Txid
+            ::from_str("0000000000000000000000000000000000000000000000000000000000000000")
+            .unwrap(),
+        vout: 0,
+    };
+    let input_script = ScriptBuf::new();
+
+    // Create a transaction input
+    let txin = TxIn {
+        previous_output,
+        script_sig: input_script,
+        sequence: Sequence::MAX,
+        witness: Witness::new(),
+    };
+
+    let address_str = "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu";
+
+    let address: Address<NetworkChecked> = Address::from_str(&address_str)
+        .unwrap()
+        .require_network(bitcoin::Network::Bitcoin)
+        .unwrap();
+
+    let script_pubkey = address.script_pubkey();
+
+    let txout = TxOut {
+        value: Amount::from_sat(100_000_000).to_sat(),
+        script_pubkey,
+    };
+
+    let runestone: ScriptBuf = (Runestone {
+        etching: Some(Etching {
+            divisibility: Some(2),
+            premine: Some(1000),
+            rune: Some(Rune::from_str("TESTER").unwrap()),
+            spacers: Some(0),
+            symbol: Some(char::from_str("Z").unwrap()),
+            turbo: true,
+            terms: None,
+        }),
+        pointer: Some(0),
+        edicts: Vec::new(),
+        mint: None,
+        proto: None,
+    }).encipher();
+
+    let op_return = TxOut {
+        value: Amount::from_sat(0).to_sat(),
+        script_pubkey: runestone,
+    };
+
+    Transaction {
+        version: 1,
+        lock_time: bitcoin::absolute::LockTime::ZERO,
+        input: vec![txin],
+        output: vec![txout, op_return],
+    }
+}
+
+pub fn create_block_with_tx(rune: bool) -> Block {
+    let tx: Transaction;
+    if rune {
+        tx = create_rune_transaction();
+    } else {
+        tx = create_test_transaction();
+    }
 
     // Define block header fields
     let version = Version::from_consensus(1);
@@ -154,6 +219,6 @@ pub fn create_block_with_tx() -> Block {
     // Create the block with the coinbase transaction
     Block {
         header,
-        txdata: vec![coinbase_tx],
+        txdata: vec![tx],
     }
 }

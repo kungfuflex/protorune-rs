@@ -108,7 +108,7 @@ impl Protorune {
     //     }
     // }
 
-    fn build_rune_id(height: u64, tx: u32) -> Arc<Vec<u8>> {
+    pub fn build_rune_id(height: u64, tx: u32) -> Arc<Vec<u8>> {
         let rune_id = RuneId::new(height, tx).unwrap().to_string().into_bytes();
         constants::HEIGHT_TO_RUNE_IDS.select_value(height).append(Arc::new(rune_id.clone()));
         return Arc::new(rune_id);
