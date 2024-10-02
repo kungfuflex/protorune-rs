@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::constants;
+    use crate::{ constants, view };
     use crate::message::MessageContext;
     use crate::tests::helpers;
     use crate::Protorune;
@@ -58,7 +58,6 @@ mod tests {
     #[wasm_bindgen_test]
     fn protorune_creation() {
         clear();
-        get_cache().to_owned().clear();
         let test_block = helpers::create_block_with_coinbase(840000);
         let expected_block_hash = display_vec_as_hex(
             test_block.block_hash().as_byte_array().to_vec()
@@ -95,17 +94,23 @@ mod tests {
             "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes()
         );
 
-        let string = Protorune::outpoints_by_address(
+        let view_test = Protorune::outpoints_by_address(
             "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes()
         );
-        println!("{}", string);
+        let mut outpoint_vec: Vec<String> = Vec::new();
+        outpoint_vec.push(
+            "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32:0".to_string()
+        );
+        let matching_view_test = view::AddressOutpoints {
+            outpoints: outpoint_vec,
+        };
+        assert_eq!(view_test, serde_json::to_string_pretty(&matching_view_test).unwrap());
         assert_eq!(_addr_str, addr_str);
     }
 
     #[wasm_bindgen_test]
     fn outpoints_by_address() {
         clear();
-        get_cache().to_owned().clear();
         let test_block = helpers::create_block_with_tx();
         constants::OUTPOINTS_FOR_ADDRESS
             .keyword("bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu")
