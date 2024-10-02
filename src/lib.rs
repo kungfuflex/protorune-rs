@@ -3,11 +3,11 @@ use anyhow::Result;
 use bitcoin::blockdata::block::Block;
 use bitcoin::consensus::encode::serialize;
 use bitcoin::hashes::Hash;
-use bitcoin::{block, Address, OutPoint, Script, ScriptBuf};
+use bitcoin::{ block, Address, OutPoint, Script, ScriptBuf };
 use metashrew::index_pointer::KeyValuePointer;
-use metashrew::{flush, println, stdout};
+use metashrew::{ flush, println, stdout };
 use ordinals::Etching;
-use ordinals::{Artifact, Runestone};
+use ordinals::{ Artifact, Runestone };
 use std::fmt::Write;
 use std::sync::Arc;
 
@@ -17,15 +17,16 @@ pub mod constants;
 pub mod message;
 pub mod protoburn;
 pub mod protostone;
+pub mod view;
 #[cfg(test)]
 pub mod tests;
-pub mod view;
 
 pub struct Protorune(());
 
 impl Protorune {
     pub fn index_etching(etching_optional: &Option<Etching>) {
-        if let Some(etching) = etching_optional {}
+        if let Some(etching) = etching_optional {
+        }
     }
 
     pub fn index_runestone<T: MessageContext>(block: &Block) {
@@ -34,6 +35,11 @@ impl Protorune {
                 Self::index_etching(&runestone.etching);
             }
         }
+    }
+
+    #[no_mangle]
+    pub fn outpoints_by_address(address: Vec<u8>) -> String {
+        view::outpoints_by_address(address)
     }
 
     pub fn index_block<T: MessageContext>(block: Block, height: u32) -> Result<()> {
