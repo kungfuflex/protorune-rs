@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use crate::view::View;
     use crate::{ constants, view };
     use crate::message::MessageContext;
     use crate::tests::helpers;
@@ -94,7 +95,7 @@ mod tests {
             "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes()
         );
 
-        let view_test = Protorune::outpoints_by_address(
+        let view_test = View::outpoints_by_address(
             "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes()
         );
         let mut outpoint_vec: Vec<String> = Vec::new();

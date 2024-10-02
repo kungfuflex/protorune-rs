@@ -1,21 +1,46 @@
 use crate::byte_utils::ByteUtils;
-use crate::protoburn::Protoburn;
 use bitcoin::Transaction;
-use metashrew::byte_view::shrink_back;
 use ordinals::{
     runestone::{message::Message, tag::Tag},
     varint, Edict, Runestone,
 };
-use std::fmt;
+use std::{collections::HashSet, fmt};
 
-enum ProtostoneError {
+pub enum ProtostoneError {
     Encode,
     NoProtostone,
     VarintError(varint::Error),
     Flawed,
+    ProtocolsNotInitialized,
 }
 
+static mut PROTOCOLS: Option<HashSet<u128>> = None;
+
 type Result<T> = std::result::Result<T, ProtostoneError>;
+
+pub fn initialized_protocol_index() -> Result<()> {
+    unsafe { PROTOCOLS = Some(HashSet::new()) }
+    Ok(())
+}
+
+pub fn add_to_indexable_protocols(protocol_tag: u128) -> Result<()> {
+    unsafe {
+        if let Some(set) = PROTOCOLS.as_mut() {
+            set.insert(protocol_tag);
+        }
+    }
+    Ok(())
+}
+
+fn has_protocol(protocol_tag: &u128) -> Result<bool> {
+    unsafe {
+        if let Some(set) = PROTOCOLS.as_mut() {
+            let contains = set.contains(protocol_tag);
+            return Ok(contains);
+        }
+    }
+    Ok(false)
+}
 
 impl fmt::Display for ProtostoneError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -24,23 +49,24 @@ impl fmt::Display for ProtostoneError {
             Self::NoProtostone => "no protostone found",
             Self::Flawed => "corrupted protostonea",
             Self::VarintError(_) => "varint error",
+            Self::ProtocolsNotInitialized => "protocols to index not initialized",
         };
         write!(f, "{}", s)
     }
 }
 
 pub struct Protostone {
-    burn: Option<u32>,
-    message: Vec<u128>,
-    edicts: Option<Vec<Edict>>,
-    refund: Option<u32>,
-    pointer: Option<u32>,
-    from: Option<u32>,
+    pub burn: Option<u32>,
+    pub message: Vec<u128>,
+    pub edicts: Option<Vec<Edict>>,
+    pub refund: Option<u32>,
+    pub pointer: Option<u32>,
+    pub from: Option<u32>,
 }
 
 fn varint_byte_len(input: &Vec<u8>, n: u128) -> Result<usize> {
     let mut cloned = input.clone();
-    for i in 0..n {
+    for _i in 0..n {
         let (_, size) =
             varint::decode(&cloned.as_slice()).map_err(|e| ProtostoneError::VarintError(e))?;
         cloned.drain(0..size);
@@ -116,10 +142,12 @@ impl Protostone {
             }
             protostone_bytes.drain(0..size);
             let byte_length = varint_byte_len(&protostone_bytes, len)?;
-            protostones.push(Protostone::from_bytes(
-                tx,
-                (&protostone_bytes[0..byte_length]).to_vec(),
-            )?);
+            if has_protocol(&protocol_tag)? {
+                protostones.push(Protostone::from_bytes(
+                    tx,
+                    (&protostone_bytes[0..byte_length]).to_vec(),
+                )?);
+            }
             protostone_bytes.drain(0..byte_length);
         }
 
