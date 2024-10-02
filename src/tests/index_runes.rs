@@ -10,6 +10,7 @@ mod tests {
     use bitcoin::{ OutPoint, Txid };
     use metashrew::{
         get_cache,
+        clear,
         utils::{ format_key },
         flush,
         index_pointer::{ IndexPointer, KeyValuePointer },
@@ -56,6 +57,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn protorune_creation() {
+        clear();
         get_cache().to_owned().clear();
         let test_block = helpers::create_block_with_coinbase(840000);
         let expected_block_hash = display_vec_as_hex(
@@ -75,6 +77,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn spendable_by_address() {
+        clear();
         let test_block = helpers::create_block_with_tx();
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
         constants::OUTPOINTS_FOR_ADDRESS
@@ -101,6 +104,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn outpoints_by_address() {
+        clear();
         get_cache().to_owned().clear();
         let test_block = helpers::create_block_with_tx();
         constants::OUTPOINTS_FOR_ADDRESS
