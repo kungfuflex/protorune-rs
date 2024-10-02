@@ -84,6 +84,9 @@ pub static DIVISIBILITY: Lazy<IndexPointer> = Lazy::new(||
 pub static RUNE_ID_TO_HEIGHT: Lazy<IndexPointer> = Lazy::new(||
     IndexPointer::from_keyword("/height/byruneid/")
 );
+pub static HEIGHT_TO_RUNE_IDS: Lazy<IndexPointer> = Lazy::new(||
+    IndexPointer::from_keyword("/runeids/byheight/")
+);
 pub static ETCHINGS: Lazy<IndexPointer> = Lazy::new(|| IndexPointer::from_keyword("/runes/names"));
 pub static RUNE_ID_TO_ETCHING: Lazy<IndexPointer> = Lazy::new(||
     IndexPointer::from_keyword("/etching/byruneid/")
