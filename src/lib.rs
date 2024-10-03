@@ -7,7 +7,7 @@ use bitcoin::{TxOut, Address, OutPoint, ScriptBuf, Transaction};
 use metashrew::index_pointer::KeyValuePointer;
 use metashrew::{flush, println, stdout};
 use ordinals::{Artifact, Runestone};
-use ordinals::{Etching, RuneId};
+use ordinals::{Edict, Etching, RuneId};
 use protostone::{add_to_indexable_protocols, initialized_protocol_index, Protostone, Protostones};
 use std::fmt::Write;
 use std::sync::Arc;
@@ -42,7 +42,7 @@ impl Protorune {
         if let Some(etching) = runestone.etching.as_ref() {
             Self::index_etching(etching, index, height)?;
         }
-        Self::process_edicts(&mut balances_by_output, &balance_sheet, &tx.output)?;
+        Self::process_edicts(&runestone.edicts, &mut balances_by_output, &balance_sheet, &tx.output)?;
         Self::handle_leftover_runes(&balance_sheet, &mut balances_by_output)?;
         balances_by_output.into_iter().fold(Ok(()), |r, (vout, sheet)| -> Result<()> {
           r?;
@@ -52,7 +52,17 @@ impl Protorune {
         })?;
         Ok(())
     }
-    pub fn process_edicts(balances_by_output: &mut HashMap<u32, BalanceSheet>, balances: &BalanceSheet, outs: &Vec<TxOut>) -> Result<()> {
+    pub fn process_edict(edict: &Edict, balances_by_output: &mut HashMap<u32, BalanceSheet>, balances: &BalanceSheet, outs: &Vec<TxOut>) -> Result<()> {
+      if edict.id.block == 0 && edict.id.tx != 0 {
+        Err(anyhow!("invalid edict"))
+      } else {
+        Ok(())
+      }
+    }
+    pub fn process_edicts(edicts: &Vec<Edict>, balances_by_output: &mut HashMap<u32, BalanceSheet>, balances: &BalanceSheet, outs: &Vec<TxOut>) -> Result<()> {
+      for edict in edicts {
+        Self::process_edict(edict, balances_by_output, balances, outs)?
+      }
       Ok(())
     }
     pub fn handle_leftover_runes(balances: &BalanceSheet, balances_by_output: &mut HashMap<u32, BalanceSheet>) -> Result<()> {
