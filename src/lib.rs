@@ -43,12 +43,10 @@ impl Protorune {
         }
         Self::process_edicts(&runestone.edicts, &mut balances_by_output, &balance_sheet, &tx.output)?;
         Self::handle_leftover_runes(&balance_sheet, &mut balances_by_output)?;
-        balances_by_output.into_iter().fold(Ok(()), |r, (vout, sheet)| -> Result<()> {
-          r?;
+        for (vout, sheet) in balances_by_output {
           let outpoint = OutPoint::new(tx.txid(), vout);
           sheet.save(&tables::OUTPOINT_TO_RUNES.select(&consensus_encode(&outpoint)?), false);
-          Ok(())
-        })?;
+        }
         Ok(())
     }
     pub fn process_edict(edict: &Edict, balances_by_output: &mut HashMap<u32, BalanceSheet>, balances: &BalanceSheet, outs: &Vec<TxOut>) -> Result<()> {
