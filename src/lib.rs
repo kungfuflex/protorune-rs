@@ -1,16 +1,15 @@
 use crate::message::MessageContext;
-use anyhow::{ anyhow, Error, Ok, Result };
+use anyhow::{anyhow, Ok, Result};
 use bitcoin::blockdata::block::Block;
 use bitcoin::consensus::encode::serialize;
 use bitcoin::hashes::Hash;
-use bitcoin::{ block, Address, OutPoint, Script, ScriptBuf, Transaction };
+use bitcoin::{Address, OutPoint, ScriptBuf, Transaction};
 use metashrew::index_pointer::KeyValuePointer;
-use metashrew::{ flush, println, stdout };
-use ordinals::{ Etching, RuneId };
-use ordinals::{ Artifact, Runestone };
-use protostone::{ add_to_indexable_protocols, initialized_protocol_index };
+use metashrew::{flush, println, stdout};
+use ordinals::{Artifact, Runestone};
+use ordinals::{Etching, RuneId};
+use protostone::{add_to_indexable_protocols, initialized_protocol_index, Protostone, Protostones};
 use std::fmt::Write;
-use std::ops::Sub;
 use std::sync::Arc;
 
 pub mod balance_sheet;
@@ -19,9 +18,9 @@ pub mod constants;
 pub mod message;
 pub mod protoburn;
 pub mod protostone;
-pub mod view;
 #[cfg(test)]
 pub mod tests;
+pub mod view;
 
 pub struct Protorune(());
 
@@ -29,7 +28,7 @@ impl Protorune {
     pub fn index_runestone<T: MessageContext>(
         runestone: &Runestone,
         height: u64,
-        index: u32
+        index: u32,
     ) -> Result<()> {
         if let Some(etching) = runestone.etching.as_ref() {
             Self::index_etching(etching, index, height)?;
@@ -47,34 +46,50 @@ impl Protorune {
         constants::RUNE_ID_TO_ETCHING
             .select(&rune_id.clone())
             .set(Arc::new(name.to_string().into_bytes()));
-        constants::ETCHING_TO_RUNE_ID.select(&name.to_string().into_bytes()).set(rune_id.clone());
-        constants::RUNE_ID_TO_HEIGHT.select(&rune_id.clone()).set_value(height);
+        constants::ETCHING_TO_RUNE_ID
+            .select(&name.to_string().into_bytes())
+            .set(rune_id.clone());
+        constants::RUNE_ID_TO_HEIGHT
+            .select(&rune_id.clone())
+            .set_value(height);
 
         if let Some(divisibility) = etching.divisibility {
-            constants::DIVISIBILITY.select(&name.to_string().into_bytes()).set_value(divisibility);
+            constants::DIVISIBILITY
+                .select(&name.to_string().into_bytes())
+                .set_value(divisibility);
         }
         if let Some(premine) = etching.premine {
-            constants::PREMINE.select(&name.to_string().into_bytes()).set_value(premine);
+            constants::PREMINE
+                .select(&name.to_string().into_bytes())
+                .set_value(premine);
         }
         if let Some(terms) = etching.terms {
             if let Some(amount) = terms.amount {
-                constants::AMOUNT.select(&name.to_string().into_bytes()).set_value(amount);
+                constants::AMOUNT
+                    .select(&name.to_string().into_bytes())
+                    .set_value(amount);
             }
             if let Some(cap) = terms.cap {
-                constants::CAP.select(&name.to_string().into_bytes()).set_value(cap);
+                constants::CAP
+                    .select(&name.to_string().into_bytes())
+                    .set_value(cap);
             }
             if let (Some(height_start), Some(height_end)) = (terms.height.0, terms.height.1) {
                 constants::HEIGHTSTART
                     .select(&name.to_string().into_bytes())
                     .set_value(height_start);
 
-                constants::HEIGHTEND.select(&name.to_string().into_bytes()).set_value(height_end);
+                constants::HEIGHTEND
+                    .select(&name.to_string().into_bytes())
+                    .set_value(height_end);
             }
             if let (Some(offset_start), Some(offset_end)) = (terms.offset.0, terms.offset.1) {
                 constants::OFFSETSTART
                     .select(&name.to_string().into_bytes())
                     .set_value(offset_start);
-                constants::OFFSETEND.select(&name.to_string().into_bytes()).set_value(offset_end);
+                constants::OFFSETEND
+                    .select(&name.to_string().into_bytes())
+                    .set_value(offset_end);
             }
         }
         if let Some(symbol) = etching.symbol {
@@ -84,7 +99,9 @@ impl Protorune {
         }
 
         if let Some(spacers) = etching.spacers {
-            constants::SYMBOL.select(&name.to_string().into_bytes()).set_value(spacers);
+            constants::SYMBOL
+                .select(&name.to_string().into_bytes())
+                .set_value(spacers);
         }
 
         constants::ETCHINGS
@@ -110,7 +127,9 @@ impl Protorune {
 
     pub fn build_rune_id(height: u64, tx: u32) -> Arc<Vec<u8>> {
         let rune_id = RuneId::new(height, tx).unwrap().to_string().into_bytes();
-        constants::HEIGHT_TO_RUNE_IDS.select_value(height).append(Arc::new(rune_id.clone()));
+        constants::HEIGHT_TO_RUNE_IDS
+            .select_value(height)
+            .append(Arc::new(rune_id.clone()));
         return Arc::new(rune_id);
     }
 
@@ -162,6 +181,19 @@ impl Protorune {
         }
         Ok(())
     }
+
+    pub fn index_protostones(
+        tx: &Transaction,
+        runestone: &Runestone,
+        vout_default: u32,
+    ) -> Result<()> {
+        let edicts = runestone.edicts.clone();
+        let protostones = Protostone::from_runestone(tx, runestone)?;
+        let burns = Protostones::burns(protostones);
+
+        Ok(())
+    }
+
     pub fn index_block<T: MessageContext>(block: Block, height: u64) -> Result<()> {
         initialized_protocol_index().map_err(|e| anyhow!(e.to_string()))?;
         add_to_indexable_protocols(T::protocol_tag()).map_err(|e| anyhow!(e.to_string()))?;

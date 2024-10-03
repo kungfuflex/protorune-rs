@@ -1,3 +1,5 @@
 pub struct Protoburn {
-    pub tag: u32,
+    pub tag: Option<u128>,
+    pub pointer: Option<u32>,
+    pub from: Option<u32>,
 }
