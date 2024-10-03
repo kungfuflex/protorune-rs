@@ -1,10 +1,4 @@
-use bitcoin::blockdata::block::Block;
-use bitcoin::hashes::Hash;
 use bitcoin::Network::{Bitcoin, Regtest};
-use metashrew::index_pointer::{IndexPointer, KeyValuePointer};
-use once_cell::sync::Lazy;
-use std::sync::atomic::AtomicPtr;
-use std::sync::Arc;
 
 pub const RUNESTONE_TAG: u16 = 0x5d6a;
 pub const OP_RETURN: u8 = 0x6a;

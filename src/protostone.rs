@@ -46,7 +46,7 @@ fn varint_byte_len(input: &Vec<u8>, n: u128) -> Result<usize> {
     let mut cloned = input.clone();
     for _i in 0..n {
         let (_, size) =
-            varint::decode(&cloned.as_slice()).map_err(|e| anyhow!("varint decode error"))?;
+            varint::decode(&cloned.as_slice()).map_err(|_| anyhow!("varint decode error"))?;
         cloned.drain(0..size);
     }
 

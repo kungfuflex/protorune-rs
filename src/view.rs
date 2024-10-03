@@ -1,8 +1,7 @@
-use crate::{constants, tables};
+use crate::{tables};
 use bitcoin::hashes::{sha256d, Hash};
 use bitcoin::OutPoint;
 use metashrew::index_pointer::KeyValuePointer;
-use std::sync::Arc;
 
 #[derive(serde::Serialize, Debug)]
 pub struct AddressOutpoints {

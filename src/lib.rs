@@ -1,7 +1,6 @@
 use crate::message::MessageContext;
 use anyhow::{anyhow, Ok, Result};
 use bitcoin::blockdata::block::Block;
-use bitcoin::consensus::encode::{Encodable};
 use bitcoin::hashes::Hash;
 use bitcoin::{TxOut, Address, OutPoint, ScriptBuf, Transaction};
 use metashrew::index_pointer::KeyValuePointer;
