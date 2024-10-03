@@ -1,9 +1,9 @@
 use crate::message::MessageContext;
 use anyhow::{anyhow, Ok, Result};
 use bitcoin::blockdata::block::Block;
-use bitcoin::consensus::encode::serialize;
+use bitcoin::consensus::encode::{Encodable};
 use bitcoin::hashes::Hash;
-use bitcoin::{Address, OutPoint, ScriptBuf, Transaction};
+use bitcoin::{TxOut, Address, OutPoint, ScriptBuf, Transaction};
 use metashrew::index_pointer::KeyValuePointer;
 use metashrew::{flush, println, stdout};
 use ordinals::{Artifact, Runestone};
@@ -11,6 +11,9 @@ use ordinals::{Etching, RuneId};
 use protostone::{add_to_indexable_protocols, initialized_protocol_index, Protostone, Protostones};
 use std::fmt::Write;
 use std::sync::Arc;
+use crate::balance_sheet::{BalanceSheet};
+use std::collections::{HashMap};
+use crate::utils::consensus_encode;
 
 pub mod balance_sheet;
 pub mod byte_utils;
@@ -19,6 +22,7 @@ pub mod message;
 pub mod protoburn;
 pub mod protostone;
 pub mod tables;
+pub mod utils;
 #[cfg(test)]
 pub mod tests;
 pub mod view;
@@ -27,14 +31,32 @@ pub struct Protorune(());
 
 impl Protorune {
     pub fn index_runestone<T: MessageContext>(
+        tx: &Transaction,
         runestone: &Runestone,
         height: u64,
         index: u32,
     ) -> Result<()> {
+        let sheets: Vec<BalanceSheet> = tx.input.iter().map(|input| Ok(BalanceSheet::load(&tables::OUTPOINT_TO_RUNES.select(&consensus_encode(&input.previous_output)?)))).collect::<Result<Vec<BalanceSheet>>>()?;
+        let balance_sheet = BalanceSheet::concat(sheets);
+        let mut balances_by_output = HashMap::<u32, BalanceSheet>::new();
         if let Some(etching) = runestone.etching.as_ref() {
             Self::index_etching(etching, index, height)?;
         }
+        Self::process_edicts(&mut balances_by_output, &balance_sheet, &tx.output)?;
+        Self::handle_leftover_runes(&balance_sheet, &mut balances_by_output)?;
+        balances_by_output.into_iter().fold(Ok(()), |r, (vout, sheet)| -> Result<()> {
+          r?;
+          let outpoint = OutPoint::new(tx.txid(), vout);
+          sheet.save(&tables::OUTPOINT_TO_RUNES.select(&consensus_encode(&outpoint)?), false);
+          Ok(())
+        })?;
         Ok(())
+    }
+    pub fn process_edicts(balances_by_output: &mut HashMap<u32, BalanceSheet>, balances: &BalanceSheet, outs: &Vec<TxOut>) -> Result<()> {
+      Ok(())
+    }
+    pub fn handle_leftover_runes(balances: &BalanceSheet, balances_by_output: &mut HashMap<u32, BalanceSheet>) -> Result<()> {
+      Ok(())
     }
     pub fn index_etching(etching: &Etching, index: u32, height: u64) -> Result<()> {
         if etching.rune.is_none() {
@@ -148,7 +170,7 @@ impl Protorune {
     pub fn index_unspendables<T: MessageContext>(block: &Block, height: u64) -> Result<()> {
         for (index, tx) in block.txdata.iter().enumerate() {
             if let Some(Artifact::Runestone(ref runestone)) = Runestone::decipher(tx) {
-                Self::index_runestone::<T>(runestone, height, index as u32)?;
+                Self::index_runestone::<T>(tx, runestone, height, index as u32)?;
             }
         }
         Ok(())
@@ -163,7 +185,7 @@ impl Protorune {
                 };
                 let output_script: &ScriptBuf = &output.script_pubkey;
                 if Address::from_script(&output_script, constants::NETWORK).is_ok() {
-                    let outpoint_bytes: Vec<u8> = serialize(&outpoint);
+                    let outpoint_bytes: Vec<u8> = consensus_encode(&outpoint)?;
                     let address = Address::from_script(&output_script, constants::NETWORK)?;
                     tables::OUTPOINTS_FOR_ADDRESS
                         .select(&address.to_string().into_bytes())
