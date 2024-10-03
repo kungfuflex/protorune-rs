@@ -8,9 +8,9 @@ pub trait ByteUtils {
 
 impl ByteUtils for u128 {
     fn to_aligned_bytes(v: Self) -> Vec<u8> {
-        let mut ar = ByteView::to_bytes(v);
+        let mut ar = v.to_bytes();
         let mut end = 0;
-        for (i, v) in ar.iter().enumerate() {
+        for (_i, v) in ar.iter().enumerate() {
             if *v != 0 {
                 break;
             }
@@ -21,13 +21,13 @@ impl ByteUtils for u128 {
         ar
     }
     fn snap_to_15_bytes(v: Self) -> Vec<u8> {
-        let mut ar = ByteView::to_bytes(v);
+        let mut ar = v.to_bytes();
         ar.drain(0..1);
         ar
     }
 
     fn to_u32(v: Self) -> u32 {
-        let ar = ByteView::to_bytes(v);
-        ByteView::from_bytes(ar[0..4].to_vec())
+        let ar = v.to_bytes();
+        u32::from_bytes(ar[0..4].to_vec())
     }
 }

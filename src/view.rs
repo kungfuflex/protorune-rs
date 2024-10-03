@@ -1,6 +1,6 @@
-use crate::constants;
-use bitcoin::hashes::{ sha256d, Hash };
-use bitcoin::{ OutPoint };
+use crate::{constants, tables};
+use bitcoin::hashes::{sha256d, Hash};
+use bitcoin::OutPoint;
 use metashrew::index_pointer::KeyValuePointer;
 use std::sync::Arc;
 
@@ -13,10 +13,12 @@ pub struct View(());
 
 impl View {
     pub fn outpoints_by_address(address: Vec<u8>) -> String {
-        let outpoints = constants::OUTPOINTS_FOR_ADDRESS.select(&address).get_list();
-        let mut ret: AddressOutpoints = AddressOutpoints { outpoints: Vec::new() };
+        let outpoints = tables::OUTPOINTS_FOR_ADDRESS.select(&address).get_list();
+        let mut ret: AddressOutpoints = AddressOutpoints {
+            outpoints: Vec::new(),
+        };
         for outpoint in outpoints {
-            let _address = constants::OUTPOINT_SPENDABLE_BY.select(&outpoint).get();
+            let _address = tables::OUTPOINT_SPENDABLE_BY.select(&outpoint).get();
             if address.len() == _address.len() {
                 let final_outpoint: String = Self::outpoint_from_bytes(&outpoint)
                     .expect("Invalid outpoint")

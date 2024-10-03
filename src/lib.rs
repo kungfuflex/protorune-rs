@@ -18,6 +18,7 @@ pub mod constants;
 pub mod message;
 pub mod protoburn;
 pub mod protostone;
+pub mod tables;
 #[cfg(test)]
 pub mod tests;
 pub mod view;
@@ -43,68 +44,82 @@ impl Protorune {
         name = etching.rune.unwrap().0;
         //Self::get_reserved_name(height, index, name);
         let rune_id = Self::build_rune_id(height, index);
-        constants::RUNE_ID_TO_ETCHING
+        tables::RUNES
+            .RUNE_ID_TO_ETCHING
             .select(&rune_id.clone())
             .set(Arc::new(name.to_string().into_bytes()));
-        constants::ETCHING_TO_RUNE_ID
+        tables::RUNES
+            .ETCHING_TO_RUNE_ID
             .select(&name.to_string().into_bytes())
             .set(rune_id.clone());
-        constants::RUNE_ID_TO_HEIGHT
+        tables::RUNES
+            .RUNE_ID_TO_HEIGHT
             .select(&rune_id.clone())
             .set_value(height);
 
         if let Some(divisibility) = etching.divisibility {
-            constants::DIVISIBILITY
+            tables::RUNES
+                .DIVISIBILITY
                 .select(&name.to_string().into_bytes())
                 .set_value(divisibility);
         }
         if let Some(premine) = etching.premine {
-            constants::PREMINE
+            tables::RUNES
+                .PREMINE
                 .select(&name.to_string().into_bytes())
                 .set_value(premine);
         }
         if let Some(terms) = etching.terms {
             if let Some(amount) = terms.amount {
-                constants::AMOUNT
+                tables::RUNES
+                    .AMOUNT
                     .select(&name.to_string().into_bytes())
                     .set_value(amount);
             }
             if let Some(cap) = terms.cap {
-                constants::CAP
+                tables::RUNES
+                    .CAP
                     .select(&name.to_string().into_bytes())
                     .set_value(cap);
             }
             if let (Some(height_start), Some(height_end)) = (terms.height.0, terms.height.1) {
-                constants::HEIGHTSTART
+                tables::RUNES
+                    .HEIGHTSTART
                     .select(&name.to_string().into_bytes())
                     .set_value(height_start);
 
-                constants::HEIGHTEND
+                tables::RUNES
+                    .HEIGHTEND
                     .select(&name.to_string().into_bytes())
                     .set_value(height_end);
             }
             if let (Some(offset_start), Some(offset_end)) = (terms.offset.0, terms.offset.1) {
-                constants::OFFSETSTART
+                tables::RUNES
+                    .OFFSETSTART
                     .select(&name.to_string().into_bytes())
                     .set_value(offset_start);
-                constants::OFFSETEND
+                tables::RUNES
+                    .OFFSETEND
                     .select(&name.to_string().into_bytes())
                     .set_value(offset_end);
             }
         }
         if let Some(symbol) = etching.symbol {
-            constants::SYMBOL
+            tables::RUNES
+                .SYMBOL
                 .select(&name.to_string().into_bytes())
                 .set(Arc::new(symbol.to_string().into_bytes()));
         }
 
         if let Some(spacers) = etching.spacers {
-            constants::SYMBOL
+            tables::RUNES
+                .SYMBOL
                 .select(&name.to_string().into_bytes())
                 .set_value(spacers);
         }
 
-        constants::ETCHINGS
+        tables::RUNES
+            .ETCHINGS
             .select(&name.to_string().into_bytes())
             .append(Arc::new(name.to_string().into_bytes()));
         Ok(())
@@ -127,9 +142,6 @@ impl Protorune {
 
     pub fn build_rune_id(height: u64, tx: u32) -> Arc<Vec<u8>> {
         let rune_id = RuneId::new(height, tx).unwrap().to_string().into_bytes();
-        constants::HEIGHT_TO_RUNE_IDS
-            .select_value(height)
-            .append(Arc::new(rune_id.clone()));
         return Arc::new(rune_id);
     }
 
@@ -153,10 +165,10 @@ impl Protorune {
                 if Address::from_script(&output_script, constants::NETWORK).is_ok() {
                     let outpoint_bytes: Vec<u8> = serialize(&outpoint);
                     let address = Address::from_script(&output_script, constants::NETWORK)?;
-                    constants::OUTPOINTS_FOR_ADDRESS
+                    tables::OUTPOINTS_FOR_ADDRESS
                         .select(&address.to_string().into_bytes())
                         .append(Arc::new(outpoint_bytes.clone()));
-                    constants::OUTPOINT_SPENDABLE_BY
+                    tables::OUTPOINT_SPENDABLE_BY
                         .select(&outpoint_bytes.clone())
                         .set(Arc::new(address.to_string().into_bytes()));
                 }
@@ -166,7 +178,9 @@ impl Protorune {
     }
 
     pub fn index_transaction_ids(block: &Block, height: u64) -> Result<()> {
-        let ptr = constants::HEIGHT_TO_TRANSACTION_IDS.select_value::<u64>(height);
+        let ptr = tables::RUNES
+            .HEIGHT_TO_TRANSACTION_IDS
+            .select_value::<u64>(height);
         for tx in &block.txdata {
             ptr.append(Arc::new(tx.txid().as_byte_array().to_vec()));
         }
@@ -174,7 +188,9 @@ impl Protorune {
     }
     pub fn index_outpoints(block: &Block, height: u64) -> Result<()> {
         for tx in &block.txdata {
-            let ptr = constants::OUTPOINT_TO_HEIGHT.select(&tx.txid().as_byte_array().to_vec());
+            let ptr = tables::RUNES
+                .OUTPOINT_TO_HEIGHT
+                .select(&tx.txid().as_byte_array().to_vec());
             for i in 0..tx.output.len() {
                 ptr.select_value(i as u32).set_value(height);
             }
@@ -197,10 +213,12 @@ impl Protorune {
     pub fn index_block<T: MessageContext>(block: Block, height: u64) -> Result<()> {
         initialized_protocol_index().map_err(|e| anyhow!(e.to_string()))?;
         add_to_indexable_protocols(T::protocol_tag()).map_err(|e| anyhow!(e.to_string()))?;
-        constants::HEIGHT_TO_BLOCKHASH
+        tables::RUNES
+            .HEIGHT_TO_BLOCKHASH
             .select_value::<u64>(height)
             .set(Arc::new(block.block_hash().as_byte_array().to_vec()));
-        constants::BLOCKHASH_TO_HEIGHT
+        tables::RUNES
+            .BLOCKHASH_TO_HEIGHT
             .select(&block.block_hash().as_byte_array().to_vec())
             .set_value::<u64>(height);
         Self::index_spendables(&block.txdata)?;
