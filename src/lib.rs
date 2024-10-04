@@ -36,12 +36,12 @@ impl Protorune {
         index: u32,
     ) -> Result<()> {
         let sheets: Vec<BalanceSheet> = tx.input.iter().map(|input| Ok(BalanceSheet::load(&tables::OUTPOINT_TO_RUNES.select(&consensus_encode(&input.previous_output)?)))).collect::<Result<Vec<BalanceSheet>>>()?;
-        let balance_sheet = BalanceSheet::concat(sheets);
+        let mut balance_sheet = BalanceSheet::concat(sheets);
         let mut balances_by_output = HashMap::<u32, BalanceSheet>::new();
         if let Some(etching) = runestone.etching.as_ref() {
             Self::index_etching(etching, index, height)?;
         }
-        Self::process_edicts(&runestone.edicts, &mut balances_by_output, &balance_sheet, &tx.output)?;
+        Self::process_edicts(&runestone.edicts, &mut balances_by_output, &mut balance_sheet, &tx.output)?;
         Self::handle_leftover_runes(&balance_sheet, &mut balances_by_output)?;
         for (vout, sheet) in balances_by_output {
           let outpoint = OutPoint::new(tx.txid(), vout);
@@ -49,14 +49,25 @@ impl Protorune {
         }
         Ok(())
     }
-    pub fn process_edict(edict: &Edict, balances_by_output: &mut HashMap<u32, BalanceSheet>, balances: &BalanceSheet, outs: &Vec<TxOut>) -> Result<()> {
+    pub fn update_balances_for_edict(balances_by_output: &mut HashMap<u32, BalanceSheet>, balance_sheet: &mut BalanceSheet, edict_amount: u128, edict_output: u32, rune_id: &RuneId) -> Result<()> {
+        if !balances_by_output.contains_key(&edict_output) {
+            balances_by_output.insert(edict_output, BalanceSheet::default());
+        }
+        let sheet: &mut BalanceSheet = balances_by_output.get_mut(&edict_output).ok_or("").map_err(|_| anyhow!("balance sheet not present"))?;
+        let amount = if edict_amount == 0 { balance_sheet.get(&(*rune_id).into()) } else { std::cmp::min(edict_amount, balance_sheet.get(&(*rune_id).into())) };
+        balance_sheet.decrease((*rune_id).into(), amount);
+        sheet.increase((*rune_id).into(), amount);
+        Ok(())
+    }
+    pub fn process_edict(edict: &Edict, balances_by_output: &mut HashMap<u32, BalanceSheet>, balances: &mut BalanceSheet, outs: &Vec<TxOut>) -> Result<()> {
       if edict.id.block == 0 && edict.id.tx != 0 {
         Err(anyhow!("invalid edict"))
       } else {
+        Self::update_balances_for_edict(balances_by_output, balances, edict.amount, edict.output, &edict.id)?;
         Ok(())
       }
     }
-    pub fn process_edicts(edicts: &Vec<Edict>, balances_by_output: &mut HashMap<u32, BalanceSheet>, balances: &BalanceSheet, outs: &Vec<TxOut>) -> Result<()> {
+    pub fn process_edicts(edicts: &Vec<Edict>, balances_by_output: &mut HashMap<u32, BalanceSheet>, balances: &mut BalanceSheet, outs: &Vec<TxOut>) -> Result<()> {
       for edict in edicts {
         Self::process_edict(edict, balances_by_output, balances, outs)?
       }

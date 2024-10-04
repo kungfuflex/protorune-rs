@@ -1,17 +1,28 @@
 use metashrew::index_pointer::{IndexPointer, KeyValuePointer};
 use ordinals::RuneId;
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::sync::Arc;
 use std::{fmt, u128};
 
 #[derive(Eq, PartialEq, Hash, Clone, Copy)]
-pub struct ProtoruneRuneId(RuneId);
+pub struct ProtoruneRuneId {
+  pub block: u128,
+  pub tx: u128
+}
 
 impl ProtoruneRuneId {
-    pub fn new(inner: RuneId) -> Self {
-        ProtoruneRuneId(inner)
+    pub fn new(block: u128, tx: u128) -> Self {
+      ProtoruneRuneId {
+        block,
+        tx
+      }
     }
+}
+
+impl From<RuneId> for ProtoruneRuneId {
+  fn from(v: RuneId) -> ProtoruneRuneId {
+    ProtoruneRuneId::new(v.block as u128, v.tx as u128)
+  }
 }
 
 impl fmt::Display for ProtoruneRuneId {
@@ -20,13 +31,6 @@ impl fmt::Display for ProtoruneRuneId {
     }
 }
 
-impl Deref for ProtoruneRuneId {
-    type Target = RuneId;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 impl From<ProtoruneRuneId> for Arc<Vec<u8>> {
     fn from(rune_id: ProtoruneRuneId) -> Self {
@@ -50,12 +54,11 @@ impl From<Arc<Vec<u8>>> for ProtoruneRuneId {
         let tx = u32::from_le_bytes(bytes[8..12].try_into().unwrap());
 
         // Return the deserialized MyStruct
-        ProtoruneRuneId {
-            0: RuneId { block, tx },
-        }
+        (RuneId { block, tx }).into()
     }
 }
 
+#[derive(Clone, Default)]
 pub struct BalanceSheet {
     balances: HashMap<ProtoruneRuneId, u128>, // Using HashMap to map runes to their balances
 }
