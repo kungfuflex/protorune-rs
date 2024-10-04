@@ -1,4 +1,4 @@
-use crate::{tables};
+use crate::tables;
 use bitcoin::hashes::{sha256d, Hash};
 use bitcoin::OutPoint;
 use metashrew::index_pointer::KeyValuePointer;

@@ -6,23 +6,20 @@ use std::{fmt, u128};
 
 #[derive(Eq, PartialEq, Hash, Clone, Copy)]
 pub struct ProtoruneRuneId {
-  pub block: u128,
-  pub tx: u128
+    pub block: u128,
+    pub tx: u128,
 }
 
 impl ProtoruneRuneId {
     pub fn new(block: u128, tx: u128) -> Self {
-      ProtoruneRuneId {
-        block,
-        tx
-      }
+        ProtoruneRuneId { block, tx }
     }
 }
 
 impl From<RuneId> for ProtoruneRuneId {
-  fn from(v: RuneId) -> ProtoruneRuneId {
-    ProtoruneRuneId::new(v.block as u128, v.tx as u128)
-  }
+    fn from(v: RuneId) -> ProtoruneRuneId {
+        ProtoruneRuneId::new(v.block as u128, v.tx as u128)
+    }
 }
 
 impl fmt::Display for ProtoruneRuneId {
@@ -30,7 +27,6 @@ impl fmt::Display for ProtoruneRuneId {
         write!(f, "RuneId {{ block: {}, tx: {} }}", self.block, self.tx)
     }
 }
-
 
 impl From<ProtoruneRuneId> for Arc<Vec<u8>> {
     fn from(rune_id: ProtoruneRuneId) -> Self {

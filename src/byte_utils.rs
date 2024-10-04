@@ -1,4 +1,3 @@
-
 pub trait ByteUtils {
     fn to_aligned_bytes(self) -> Vec<u8>;
     fn snap_to_15_bytes(self) -> Vec<u8>;
@@ -26,6 +25,6 @@ impl ByteUtils for u128 {
     }
 
     fn to_u32(self) -> u32 {
-      self as u32
+        self as u32
     }
 }
