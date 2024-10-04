@@ -28,6 +28,15 @@ pub mod view;
 
 pub struct Protorune(());
 
+pub fn default_output(tx: &Transaction) -> u32 {
+  for i in 0..tx.output.len() {
+    if !tx.output[i].script_pubkey.is_op_return() {
+      return i as u32;
+    }
+  }
+  0
+}
+
 pub fn num_op_return_outputs(tx: &Transaction) -> usize {
     tx.output
         .iter()
@@ -63,7 +72,11 @@ impl Protorune {
             &mut balance_sheet,
             &tx.output,
         )?;
-        Self::handle_leftover_runes(&balance_sheet, &mut balances_by_output)?;
+        let unallocated_to = match runestone.pointer {
+          Some(v) => v,
+          None => default_output(tx)
+        };
+        Self::handle_leftover_runes(&mut balance_sheet, &mut balances_by_output, unallocated_to)?;
         for (vout, sheet) in balances_by_output {
             let outpoint = OutPoint::new(tx.txid(), vout);
             sheet.save(
@@ -174,9 +187,14 @@ impl Protorune {
         Ok(())
     }
     pub fn handle_leftover_runes(
-        balances: &BalanceSheet,
+        balances: &mut BalanceSheet,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
+        unallocated_to: u32, 
     ) -> Result<()> {
+        match balances_by_output.get_mut(&unallocated_to) {
+          Some(v) => balances.pipe(v),
+          None => { balances_by_output.insert(unallocated_to, balances.clone()); }
+        }
         Ok(())
     }
     pub fn index_etching(etching: &Etching, index: u32, height: u64) -> Result<()> {
