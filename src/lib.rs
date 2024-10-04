@@ -28,6 +28,10 @@ pub mod view;
 
 pub struct Protorune(());
 
+pub fn num_op_return_outputs(tx: &Transaction) -> usize {
+  tx.output.iter().filter(|out| (*out.script_pubkey).is_op_return()).count()
+}
+
 impl Protorune {
     pub fn index_runestone<T: MessageContext>(
         tx: &Transaction,
@@ -41,7 +45,7 @@ impl Protorune {
         if let Some(etching) = runestone.etching.as_ref() {
             Self::index_etching(etching, index, height)?;
         }
-        Self::process_edicts(&runestone.edicts, &mut balances_by_output, &mut balance_sheet, &tx.output)?;
+        Self::process_edicts(tx, &runestone.edicts, &mut balances_by_output, &mut balance_sheet, &tx.output)?;
         Self::handle_leftover_runes(&balance_sheet, &mut balances_by_output)?;
         for (vout, sheet) in balances_by_output {
           let outpoint = OutPoint::new(tx.txid(), vout);
@@ -59,17 +63,42 @@ impl Protorune {
         sheet.increase((*rune_id).into(), amount);
         Ok(())
     }
-    pub fn process_edict(edict: &Edict, balances_by_output: &mut HashMap<u32, BalanceSheet>, balances: &mut BalanceSheet, outs: &Vec<TxOut>) -> Result<()> {
+    pub fn process_edict(tx: &Transaction, edict: &Edict, balances_by_output: &mut HashMap<u32, BalanceSheet>, balances: &mut BalanceSheet, outs: &Vec<TxOut>) -> Result<()> {
       if edict.id.block == 0 && edict.id.tx != 0 {
         Err(anyhow!("invalid edict"))
       } else {
-        Self::update_balances_for_edict(balances_by_output, balances, edict.amount, edict.output, &edict.id)?;
+        if edict.output as usize == tx.output.len() {
+          if edict.amount == 0 {
+            let count = num_op_return_outputs(tx) as u128;
+            if count != 0 {
+              let max = balances.get(&edict.id.into());
+              let mut spread: u128 = 0;
+              for i in 0..(tx.output.len() as u32) {
+                  if tx.output[i as usize].script_pubkey.is_op_return() { continue; }
+                  let rem: u128 = if max % (count as u128) - spread != 0 { 1 } else { 0 };
+                  spread = spread + rem;
+                  Self::update_balances_for_edict(balances_by_output, balances, (max / count) + rem, i, &edict.id)?;
+              }
+            }
+          } else {
+            let count = num_op_return_outputs(tx) as u128;
+            if count != 0 {
+              let amount = edict.amount;
+              for i in 0..(tx.output.len() as u32) {
+                  if tx.output[i as usize].script_pubkey.is_op_return() { continue; }
+                  Self::update_balances_for_edict(balances_by_output, balances, amount, i, &edict.id)?;
+              }
+            }
+          }
+        } else {
+          Self::update_balances_for_edict(balances_by_output, balances, edict.amount, edict.output, &edict.id)?;
+        }
         Ok(())
       }
     }
-    pub fn process_edicts(edicts: &Vec<Edict>, balances_by_output: &mut HashMap<u32, BalanceSheet>, balances: &mut BalanceSheet, outs: &Vec<TxOut>) -> Result<()> {
+    pub fn process_edicts(tx: &Transaction, edicts: &Vec<Edict>, balances_by_output: &mut HashMap<u32, BalanceSheet>, balances: &mut BalanceSheet, outs: &Vec<TxOut>) -> Result<()> {
       for edict in edicts {
-        Self::process_edict(edict, balances_by_output, balances, outs)?
+        Self::process_edict(tx, edict, balances_by_output, balances, outs)?
       }
       Ok(())
     }
@@ -201,10 +230,10 @@ impl Protorune {
                     txid: tx_id.clone(),
                     vout: index as u32,
                 };
-                let output_script: &ScriptBuf = &output.script_pubkey;
-                if Address::from_script(&output_script, constants::NETWORK).is_ok() {
+                let output_script_pubkey: &ScriptBuf = &output.script_pubkey;
+                if Address::from_script(&output_script_pubkey, constants::NETWORK).is_ok() {
                     let outpoint_bytes: Vec<u8> = consensus_encode(&outpoint)?;
-                    let address = Address::from_script(&output_script, constants::NETWORK)?;
+                    let address = Address::from_script(&output_script_pubkey, constants::NETWORK)?;
                     tables::OUTPOINTS_FOR_ADDRESS
                         .select(&address.to_string().into_bytes())
                         .append(Arc::new(outpoint_bytes.clone()));
