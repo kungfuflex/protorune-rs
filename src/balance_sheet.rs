@@ -130,8 +130,7 @@ impl BalanceSheet {
             }
         }
     }
-    pub fn pipe(&self, _target: &mut BalanceSheet) {
-    }
+    pub fn pipe(&self, _target: &mut BalanceSheet) {}
     pub fn load<T: KeyValuePointer>(ptr: &T) -> BalanceSheet {
         let runes_ptr = ptr.keyword("/runes");
         let balances_ptr = ptr.keyword("/balances");
