@@ -122,7 +122,7 @@ impl BalanceSheet {
         concatenated
     }
 
-    pub fn save(&self, ptr: &IndexPointer, is_cenotaph: bool) {
+    pub fn save<T: KeyValuePointer>(&self, ptr: &T, is_cenotaph: bool) {
         let runes_ptr = ptr.keyword("/runes");
         let balances_ptr = ptr.keyword("/balances");
 
@@ -135,7 +135,7 @@ impl BalanceSheet {
         }
     }
 
-    pub fn load(ptr: &IndexPointer) -> BalanceSheet {
+    pub fn load<T: KeyValuePointer>(ptr: &T) -> BalanceSheet {
         let runes_ptr = ptr.keyword("/runes");
         let balances_ptr = ptr.keyword("/balances");
         let length = runes_ptr.length_key().get_value::<u32>();
