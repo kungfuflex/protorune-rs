@@ -13,6 +13,7 @@ use ordinals::{ Edict, Etching, RuneId };
 use protostone::{ add_to_indexable_protocols, initialized_protocol_index, Protostone, Protostones };
 use std::collections::HashMap;
 use std::fmt::Write;
+use std::ops::Sub;
 use std::sync::Arc;
 
 pub mod balance_sheet;
@@ -68,6 +69,11 @@ impl Protorune {
         let mut balances_by_output = HashMap::<u32, BalanceSheet>::new();
         if let Some(etching) = runestone.etching.as_ref() {
             Self::index_etching(&etching, index, height, &mut balance_sheet)?;
+        }
+        if let Some(mint) = runestone.mint.as_ref() {
+            if !mint.to_string().is_empty() {
+                Self::index_mint(&mint, height, &mut balance_sheet)?;
+            }
         }
         Self::process_edicts(
             tx,
@@ -200,6 +206,34 @@ impl Protorune {
         }
         Ok(())
     }
+
+    pub fn index_mint(mint: &RuneId, height: u64, balance_sheet: &mut BalanceSheet) -> Result<()> {
+        let name = tables::RUNES.RUNE_ID_TO_ETCHING.select(&mint.to_string().into_bytes()).get();
+        let remaining: u128 = tables::RUNES.MINTS_REMAINING.select(&name).get_value();
+        let amount: u128 = tables::RUNES.AMOUNT.select(&name).get_value();
+        if remaining != 0 {
+            let height_start: u64 = tables::RUNES.HEIGHTSTART.select(&name).get_value();
+            let height_end: u64 = tables::RUNES.HEIGHTEND.select(&name).get_value();
+            let offset_start: u64 = tables::RUNES.OFFSETSTART.select(&name).get_value();
+            let offset_end: u64 = tables::RUNES.OFFSETEND.select(&name).get_value();
+            let etching_height: u64 = tables::RUNES.RUNE_ID_TO_HEIGHT.select(&name).get_value();
+
+            if
+                (height_start == 0 || height >= height_start) &&
+                (height_end == 0 || height < height_end) &&
+                (offset_start == 0 || height >= offset_start + etching_height) &&
+                (offset_end == 0 || height < etching_height + offset_end)
+            {
+                tables::RUNES.MINTS_REMAINING.select(&name).set_value(remaining.sub(1));
+                balance_sheet.increase(
+                    ProtoruneRuneId { block: u128::from(mint.block), tx: u128::from(mint.tx) },
+                    amount
+                );
+            }
+        }
+        Ok(())
+    }
+
     pub fn index_etching(
         etching: &Etching,
         index: u32,
@@ -236,6 +270,9 @@ impl Protorune {
                 }
                 if let Some(cap) = terms.cap {
                     tables::RUNES.CAP.select(&name.0.to_string().into_bytes()).set_value(cap);
+                    tables::RUNES.MINTS_REMAINING
+                        .select(&name.0.to_string().into_bytes())
+                        .set_value(cap);
                 }
                 if let (Some(height_start), Some(height_end)) = (terms.height.0, terms.height.1) {
                     tables::RUNES.HEIGHTSTART
