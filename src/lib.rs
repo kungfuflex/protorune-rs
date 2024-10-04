@@ -67,10 +67,16 @@ impl Protorune {
             .collect::<Result<Vec<BalanceSheet>>>()?;
         let mut balance_sheet = BalanceSheet::concat(sheets);
         let mut balances_by_output = HashMap::<u32, BalanceSheet>::new();
-        if let Some(etching) = runestone.etching.as_ref() {
-            Self::index_etching(&etching, index, height, &mut balance_sheet)?;
+        if let Some(etching) = runestone.etching {
+            Self::index_etching(
+                &etching,
+                index,
+                height,
+                &mut balance_sheet,
+                &mut balances_by_output
+            )?;
         }
-        if let Some(mint) = runestone.mint.as_ref() {
+        if let Some(mint) = runestone.mint {
             if !mint.to_string().is_empty() {
                 Self::index_mint(&mint, height, &mut balance_sheet)?;
             }
@@ -89,7 +95,10 @@ impl Protorune {
         Self::handle_leftover_runes(&mut balance_sheet, &mut balances_by_output, unallocated_to)?;
         for (vout, sheet) in balances_by_output {
             let outpoint = OutPoint::new(tx.txid(), vout);
-            sheet.save(&tables::OUTPOINT_TO_RUNES.select(&consensus_encode(&outpoint)?), false);
+            sheet.save(
+                &tables::RUNES.OUTPOINT_TO_RUNES.select(&consensus_encode(&outpoint)?),
+                false
+            );
         }
         Ok(())
     }
@@ -238,11 +247,9 @@ impl Protorune {
         etching: &Etching,
         index: u32,
         height: u64,
-        balance_sheet: &mut BalanceSheet
+        balance_sheet: &mut BalanceSheet,
+        balances_by_output: &mut HashMap<u32, BalanceSheet>
     ) -> Result<()> {
-        if etching.rune.is_none() {
-            return Ok(());
-        }
         if let Some(name) = etching.rune {
             //Self::get_reserved_name(height, index, name);
             let rune_id = Self::build_rune_id(height, index);
@@ -261,8 +268,13 @@ impl Protorune {
             }
             if let Some(premine) = etching.premine {
                 tables::RUNES.PREMINE.select(&name.0.to_string().into_bytes()).set_value(premine);
-                let rune = ProtoruneRuneId::from(Arc::new(name.0.clone().to_string().into_bytes()));
-                BalanceSheet::from_pairs(vec![rune], vec![premine]).pipe(balance_sheet);
+                let rune = ProtoruneRuneId {
+                    block: u128::from(height),
+                    tx: u128::from(index),
+                };
+                let sheet = BalanceSheet::from_pairs(vec![rune], vec![premine]);
+                //.pipe(balance_sheet);
+                balances_by_output.insert(0, sheet);
             }
             if let Some(terms) = etching.terms {
                 if let Some(amount) = terms.amount {
