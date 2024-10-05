@@ -2,6 +2,7 @@ use metashrew::index_pointer::{IndexPointer, KeyValuePointer};
 use once_cell::sync::Lazy;
 
 #[allow(non_snake_case)]
+#[derive(Default, Clone)]
 pub struct RuneTable {
     pub HEIGHT_TO_BLOCKHASH: IndexPointer,
     pub BLOCKHASH_TO_HEIGHT: IndexPointer,

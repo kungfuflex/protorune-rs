@@ -6,7 +6,7 @@ mod tests {
     use crate::utils::consensus_encode;
     use crate::view::View;
     use crate::Protorune;
-    use crate::{ constants, tables, view };
+    use crate::{ constants, tables, view, message::{MessageContextParcel} };
     use bitcoin::consensus::serialize;
     use bitcoin::hashes::Hash;
     use bitcoin::{ blockdata::block::Block, Address };
@@ -31,7 +31,7 @@ mod tests {
     struct MyMessageContext(());
 
     impl MessageContext for MyMessageContext {
-        fn handle() -> bool {
+        fn handle(_parcel: Box<MessageContextParcel>) -> bool {
             false
         }
         fn protocol_tag() -> u128 {

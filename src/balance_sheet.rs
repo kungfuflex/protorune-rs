@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::{ fmt, u128 };
 
-#[derive(Eq, PartialEq, Hash, Clone, Copy, Debug)]
+#[derive(Eq, PartialEq, Hash, Clone, Copy, Debug, Default)]
 pub struct ProtoruneRuneId {
     pub block: u128,
     pub tx: u128,
