@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::balance_sheet::{ BalanceSheet, ProtoruneRuneId };
+    use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
     use crate::message::MessageContext;
     use crate::tests::helpers;
     use crate::utils::consensus_encode;
@@ -9,14 +9,12 @@ mod tests {
     use crate::{ constants, tables, view, message::{MessageContextParcel} };
     use bitcoin::consensus::serialize;
     use bitcoin::hashes::Hash;
-    use bitcoin::{ blockdata::block::Block, Address };
-    use bitcoin::{ OutPoint, Txid };
+    use bitcoin::{blockdata::block::Block, Address};
+    use bitcoin::{OutPoint, Txid};
     use hex;
     use metashrew::{
-        clear,
-        flush,
-        get_cache,
-        index_pointer::{ IndexPointer, KeyValuePointer },
+        clear, flush, get_cache,
+        index_pointer::{IndexPointer, KeyValuePointer},
         println,
         stdio::stdout,
         utils::format_key,
@@ -60,22 +58,25 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn protorune_creation() {
+    fn height_blockhash() {
         clear();
         let test_block = helpers::create_block_with_coinbase(840000);
-        let expected_block_hash = display_vec_as_hex(
-            test_block.block_hash().as_byte_array().to_vec()
-        );
-        let _ = Protorune::index_block::<MyMessageContext>(test_block, 840000);
-        tables::OUTPOINTS_FOR_ADDRESS
-            .keyword("bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu")
-            .set(Arc::new(Vec::new()));
-        let test_val = tables::RUNES.HEIGHT_TO_BLOCKHASH
+        let expected_block_hash =
+            display_vec_as_hex(test_block.block_hash().as_byte_array().to_vec());
+        let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840000);
+        let test_height_to_blockhash = tables::RUNES
+            .HEIGHT_TO_BLOCKHASH
             .select_value(840000 as u64)
             .get();
-        let hex_str = hex::encode(test_val.as_ref());
-        println!("{}", &hex_str);
-        assert_eq!(hex_str, expected_block_hash);
+        let test_blockhash_to_height = tables::RUNES
+            .BLOCKHASH_TO_HEIGHT
+            .select(&test_block.block_hash().as_byte_array().to_vec())
+            .get_value::<u64>();
+        assert_eq!(
+            hex::encode(test_height_to_blockhash.as_ref()),
+            expected_block_hash
+        );
+        assert_eq!(test_blockhash_to_height, 840000);
     }
 
     #[wasm_bindgen_test]
@@ -88,27 +89,36 @@ mod tests {
             .set(Arc::new(Vec::new()));
         let outpoint: OutPoint = OutPoint {
             txid: Txid::from_str(
-                "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32"
-            ).unwrap(),
+                "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32",
+            )
+            .unwrap(),
             vout: 0,
         };
-        let test_val = tables::OUTPOINT_SPENDABLE_BY.select(&serialize(&outpoint)).get();
+        let test_val = tables::OUTPOINT_SPENDABLE_BY
+            .select(&serialize(&outpoint))
+            .get();
         let addr_str = display_vec_as_hex(test_val.to_vec());
         let _addr_str: String = display_vec_as_hex(
-            "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes()
+            "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"
+                .to_string()
+                .into_bytes(),
         );
 
         let view_test = View::outpoints_by_address(
-            "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes()
+            "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"
+                .to_string()
+                .into_bytes(),
         );
         let mut outpoint_vec: Vec<String> = Vec::new();
-        outpoint_vec.push(
-            "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32:0".to_string()
-        );
+        outpoint_vec
+            .push("a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32:0".to_string());
         let matching_view_test = view::AddressOutpoints {
             outpoints: outpoint_vec,
         };
-        assert_eq!(view_test, serde_json::to_string_pretty(&matching_view_test).unwrap());
+        assert_eq!(
+            view_test,
+            serde_json::to_string_pretty(&matching_view_test).unwrap()
+        );
         assert_eq!(_addr_str, addr_str);
     }
 
@@ -119,8 +129,9 @@ mod tests {
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
         let outpoint: OutPoint = OutPoint {
             txid: Txid::from_str(
-                "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32"
-            ).unwrap(),
+                "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32",
+            )
+            .unwrap(),
             vout: 0,
         };
         let test_val = tables::OUTPOINTS_FOR_ADDRESS
@@ -157,8 +168,9 @@ mod tests {
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840000);
         let outpoint: OutPoint = OutPoint {
             txid: Txid::from_str(
-                "9ce5f5651eb9042179e8dca3d51aa74eb2973637f8b1a0c878920dab1b0724fc"
-            ).unwrap(),
+                "9ce5f5651eb9042179e8dca3d51aa74eb2973637f8b1a0c878920dab1b0724fc",
+            )
+            .unwrap(),
             vout: 0,
         };
         let protorune_id = ProtoruneRuneId {
@@ -166,7 +178,9 @@ mod tests {
             tx: 0 as u128,
         };
         let sheet = BalanceSheet::load(
-            &tables::RUNES.OUTPOINT_TO_RUNES.select(&consensus_encode(&outpoint).unwrap())
+            &tables::RUNES
+                .OUTPOINT_TO_RUNES
+                .select(&consensus_encode(&outpoint).unwrap()),
         );
 
         let stored_balance = sheet.get(&protorune_id);
