@@ -56,7 +56,7 @@ impl From<Arc<Vec<u8>>> for ProtoruneRuneId {
 
 #[derive(Clone, Default, Debug)]
 pub struct BalanceSheet {
-    balances: HashMap<ProtoruneRuneId, u128>, // Using HashMap to map runes to their balances
+    pub balances: HashMap<ProtoruneRuneId, u128>, // Using HashMap to map runes to their balances
 }
 
 impl BalanceSheet {

@@ -1,13 +1,14 @@
 use anyhow::{anyhow, Result};
+use bitcoin::{OutPoint, Txid};
 use std::{
     cmp::min,
     collections::{HashMap, HashSet},
     ops::Deref,
 };
 
-use ordinals::{RuneId, Runestone};
+use ordinals::Runestone;
 
-use crate::balance_sheet::BalanceSheet;
+use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
 
 #[derive(Clone)]
 pub struct Protoburn {
@@ -16,22 +17,46 @@ pub struct Protoburn {
     pub from: Option<Vec<u32>>,
 }
 
-impl Protoburn {}
+impl Protoburn {
+    pub fn process(&mut self, outpoint: OutPoint) -> Result<()> {
+        Ok(())
+    }
+}
 
 pub trait Protoburns<T>: Deref<Target = [T]> {
     fn construct_burncycle(&self) -> Result<BurnCycle> {
         let length = u32::try_from(self.len())?;
         Ok(BurnCycle::new(length))
     }
-    fn process(&mut self, runestone: &Runestone, runestone_output_index: u32) -> Result<()>;
+    fn process(
+        &mut self,
+        runestone: &Runestone,
+        runestone_output_index: u32,
+        balances_by_output: &HashMap<u32, BalanceSheet>,
+        default_output: u32,
+        txid: Txid,
+    ) -> Result<()>;
 }
 
 impl Protoburns<Protoburn> for Vec<Protoburn> {
-    fn process(&mut self, runestone: &Runestone, runestone_output_index: u32) -> Result<()> {
-        //TODO: pipe stuff into runestone_balance_sheet
-        let burn_cycles = self.construct_burncycle()?;
-        let edicts = runestone.edicts.clone();
+    fn process(
+        &mut self,
+        runestone: &Runestone,
+        runestone_output_index: u32,
+        balances_by_output: &HashMap<u32, BalanceSheet>,
+        default_output: u32,
+        txid: Txid,
+    ) -> Result<()> {
         let mut runestone_balance_sheet = BalanceSheet::new();
+        if balances_by_output.contains_key(&runestone_output_index) {
+            let sheet = balances_by_output
+                .get(&runestone_output_index)
+                .ok_or(anyhow!("cannot find balance sheet"))?;
+            sheet.pipe(&mut runestone_balance_sheet);
+        }
+        //TODO: pipe stuff into runestone_balance_sheet
+        let mut burn_cycles = self.construct_burncycle()?;
+        let edicts = runestone.edicts.clone();
         let mut pull_set = HashMap::<u32, bool>::new();
         let mut burn_sheets = self
             .into_iter()
@@ -56,24 +81,59 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
             }
         }
 
-        //TODO: process cycles
+        for (i, edict) in edicts.into_iter().enumerate() {
+            if pull_set.contains_key(&(i as u32)) {
+                continue;
+            };
+            if edict.output == runestone_output_index {
+                let rune = edict.id;
+                let cycle = burn_cycles.peek(&(rune.into()))?;
+                let remaining = runestone_balance_sheet.get(&(rune.into()));
+                let to_apply = min(remaining, edict.amount);
+                if to_apply == 0 {
+                    continue;
+                };
+                burn_cycles.next(&(rune.into()))?;
+                runestone_balance_sheet.decrease(rune.clone().into(), to_apply);
+                burn_sheets[cycle as usize].increase(rune.into(), to_apply);
+            }
+        }
+        if runestone_output_index == default_output {
+            for rune in runestone_balance_sheet.clone().balances.keys() {
+                let cycle = burn_cycles.peek(rune)?;
+                let to_apply = runestone_balance_sheet.get(rune);
+                if to_apply == 0 {
+                    continue;
+                };
+                burn_cycles.next(rune)?;
+                runestone_balance_sheet.decrease(rune.clone(), to_apply);
+                burn_sheets[cycle as usize].increase(rune.clone(), to_apply);
+            }
+        }
+
+        for burn in self {
+            burn.process(OutPoint::new(
+                txid,
+                burn.pointer.ok_or(anyhow!("no vout on protoburn"))?,
+            ))?;
+        }
         Ok(())
     }
 }
 
-struct BurnCycle {
+pub struct BurnCycle {
     max: u32,
-    cycles: HashMap<RuneId, i32>,
+    cycles: HashMap<ProtoruneRuneId, i32>,
 }
 
 impl BurnCycle {
     pub fn new(max: u32) -> Self {
         BurnCycle {
             max,
-            cycles: HashMap::<RuneId, i32>::new(),
+            cycles: HashMap::<ProtoruneRuneId, i32>::new(),
         }
     }
-    pub fn next(&mut self, rune: &RuneId) -> Result<i32> {
+    pub fn next(&mut self, rune: &ProtoruneRuneId) -> Result<i32> {
         if !self.cycles.contains_key(rune) {
             self.cycles.insert(rune.clone(), 0);
         }
@@ -83,7 +143,7 @@ impl BurnCycle {
             .insert(rune.clone(), (cycle.clone() + 1) % (self.max as i32));
         Ok(cycle.clone())
     }
-    pub fn peek(&mut self, rune: &RuneId) -> Result<i32> {
+    pub fn peek(&mut self, rune: &ProtoruneRuneId) -> Result<i32> {
         if !self.cycles.contains_key(rune) {
             self.cycles.insert(rune.clone(), 0);
         }
