@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::{ fmt, u128 };
 
-#[derive(Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Eq, PartialEq, Hash, Clone, Copy, Debug)]
 pub struct ProtoruneRuneId {
     pub block: u128,
     pub tx: u128,
@@ -54,7 +54,7 @@ impl From<Arc<Vec<u8>>> for ProtoruneRuneId {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct BalanceSheet {
     balances: HashMap<ProtoruneRuneId, u128>, // Using HashMap to map runes to their balances
 }

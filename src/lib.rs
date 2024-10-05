@@ -13,6 +13,7 @@ use ordinals::{Edict, Etching, RuneId};
 use protostone::{add_to_indexable_protocols, initialized_protocol_index, Protostone, Protostones};
 use std::collections::HashMap;
 use std::fmt::Write;
+use std::ops::Sub;
 use std::sync::Arc;
 
 pub mod balance_sheet;
@@ -64,7 +65,19 @@ impl Protorune {
         let mut balance_sheet = BalanceSheet::concat(sheets);
         let mut balances_by_output = HashMap::<u32, BalanceSheet>::new();
         if let Some(etching) = runestone.etching.as_ref() {
-            Self::index_etching(atomic, etching, index, height)?;
+            Self::index_etching(
+                atomic,
+                etching,
+                index,
+                height,
+                &mut balance_sheet,
+                &mut balances_by_output
+            )?;
+        }
+        if let Some(mint) = runestone.mint {
+            if !mint.to_string().is_empty() {
+                Self::index_mint(&mint, height, &mut balance_sheet)?;
+            }
         }
         Self::process_edicts(
             tx,
@@ -200,92 +213,108 @@ impl Protorune {
         }
         Ok(())
     }
-    pub fn index_etching(atomic: &mut AtomicPointer, etching: &Etching, index: u32, height: u64) -> Result<()> {
-        if etching.rune.is_none() {
-            return Ok(());
-        }
-        let name: u128;
-        name = etching.rune.unwrap().0;
-        //Self::get_reserved_name(height, index, name);
-        let rune_id = Self::build_rune_id(height, index);
-        atomic.derive(&tables::RUNES
-            .RUNE_ID_TO_ETCHING
-            .select(&rune_id.clone()))
-            .set(Arc::new(name.to_string().into_bytes()));
-        atomic.derive(&tables::RUNES
-            .ETCHING_TO_RUNE_ID
-            .select(&name.to_string().into_bytes()))
-            .set(rune_id.clone());
-        atomic.derive(&tables::RUNES
-            .RUNE_ID_TO_HEIGHT
-            .select(&rune_id.clone()))
-            .set_value(height);
+    pub fn index_mint(mint: &RuneId, height: u64, balance_sheet: &mut BalanceSheet) -> Result<()> {
+        let name = tables::RUNES.RUNE_ID_TO_ETCHING.select(&mint.to_string().into_bytes()).get();
+        let remaining: u128 = tables::RUNES.MINTS_REMAINING.select(&name).get_value();
+        let amount: u128 = tables::RUNES.AMOUNT.select(&name).get_value();
+        if remaining != 0 {
+            let height_start: u64 = tables::RUNES.HEIGHTSTART.select(&name).get_value();
+            let height_end: u64 = tables::RUNES.HEIGHTEND.select(&name).get_value();
+            let offset_start: u64 = tables::RUNES.OFFSETSTART.select(&name).get_value();
+            let offset_end: u64 = tables::RUNES.OFFSETEND.select(&name).get_value();
+            let etching_height: u64 = tables::RUNES.RUNE_ID_TO_HEIGHT.select(&name).get_value();
 
-        if let Some(divisibility) = etching.divisibility {
-            atomic.derive(&tables::RUNES
-                .DIVISIBILITY
-                .select(&name.to_string().into_bytes()))
-                .set_value(divisibility);
-        }
-        if let Some(premine) = etching.premine {
-            atomic.derive(&tables::RUNES
-                .PREMINE
-                .select(&name.to_string().into_bytes()))
-                .set_value(premine);
-        }
-        if let Some(terms) = etching.terms {
-            if let Some(amount) = terms.amount {
-                atomic.derive(&tables::RUNES
-                    .AMOUNT
-                    .select(&name.to_string().into_bytes()))
-                    .set_value(amount);
-            }
-            if let Some(cap) = terms.cap {
-                atomic.derive(&tables::RUNES
-                    .CAP
-                    .select(&name.to_string().into_bytes()))
-                    .set_value(cap);
-            }
-            if let (Some(height_start), Some(height_end)) = (terms.height.0, terms.height.1) {
-                atomic.derive(&tables::RUNES
-                    .HEIGHTSTART
-                    .select(&name.to_string().into_bytes()))
-                    .set_value(height_start);
-
-                atomic.derive(&tables::RUNES
-                    .HEIGHTEND
-                    .select(&name.to_string().into_bytes()))
-                    .set_value(height_end);
-            }
-            if let (Some(offset_start), Some(offset_end)) = (terms.offset.0, terms.offset.1) {
-                atomic.derive(&tables::RUNES
-                    .OFFSETSTART
-                    .select(&name.to_string().into_bytes()))
-                    .set_value(offset_start);
-                atomic.derive(&tables::RUNES
-                    .OFFSETEND
-                    .select(&name.to_string().into_bytes()))
-                    .set_value(offset_end);
+            if
+                (height_start == 0 || height >= height_start) &&
+                (height_end == 0 || height < height_end) &&
+                (offset_start == 0 || height >= offset_start + etching_height) &&
+                (offset_end == 0 || height < etching_height + offset_end)
+            {
+                tables::RUNES.MINTS_REMAINING.select(&name).set_value(remaining.sub(1));
+                balance_sheet.increase(
+                    ProtoruneRuneId { block: u128::from(mint.block), tx: u128::from(mint.tx) },
+                    amount
+                );
             }
         }
-        if let Some(symbol) = etching.symbol {
-            atomic.derive(&tables::RUNES
-                .SYMBOL
-                .select(&name.to_string().into_bytes()))
-                .set(Arc::new(symbol.to_string().into_bytes()));
-        }
+        Ok(())
+    }
 
-        if let Some(spacers) = etching.spacers {
-            atomic.derive(&tables::RUNES
-                .SYMBOL
-                .select(&name.to_string().into_bytes()))
-                .set_value(spacers);
-        }
+    pub fn index_etching(
+        atomic: &mut AtomicPointer,
+        etching: &Etching,
+        index: u32,
+        height: u64,
+        balance_sheet: &mut BalanceSheet,
+        balances_by_output: &mut HashMap<u32, BalanceSheet>
+    ) -> Result<()> {
+        if let Some(name) = etching.rune {
+            //Self::get_reserved_name(height, index, name);
+            let rune_id = Self::build_rune_id(height, index);
+            atomic.derive(&tables::RUNES.RUNE_ID_TO_ETCHING
+                .select(&rune_id.clone()))
+                .set(Arc::new(name.0.to_string().into_bytes()));
+            atomic.derive(&tables::RUNES.ETCHING_TO_RUNE_ID
+                .select(&name.0.to_string().into_bytes()))
+                .set(rune_id.clone());
+            atomic.derive(&tables::RUNES.RUNE_ID_TO_HEIGHT.select(&rune_id.clone())).set_value(height);
 
-        atomic.derive(&tables::RUNES
-            .ETCHINGS
-            .select(&name.to_string().into_bytes()))
-            .append(Arc::new(name.to_string().into_bytes()));
+            if let Some(divisibility) = etching.divisibility {
+                atomic.derive(&tables::RUNES.DIVISIBILITY
+                    .select(&name.0.to_string().into_bytes()))
+                    .set_value(divisibility);
+            }
+            if let Some(premine) = etching.premine {
+                atomic.derive(&tables::RUNES.PREMINE.select(&name.0.to_string().into_bytes())).set_value(premine);
+                let rune = ProtoruneRuneId {
+                    block: u128::from(height),
+                    tx: u128::from(index),
+                };
+                let sheet = BalanceSheet::from_pairs(vec![rune], vec![premine]);
+                //.pipe(balance_sheet);
+                balances_by_output.insert(0, sheet);
+            }
+            if let Some(terms) = etching.terms {
+                if let Some(amount) = terms.amount {
+                    atomic.derive(&tables::RUNES.AMOUNT.select(&name.0.to_string().into_bytes())).set_value(amount);
+                }
+                if let Some(cap) = terms.cap {
+                    atomic.derive(&tables::RUNES.CAP.select(&name.0.to_string().into_bytes())).set_value(cap);
+                    atomic.derive(&tables::RUNES.MINTS_REMAINING
+                        .select(&name.0.to_string().into_bytes()))
+                        .set_value(cap);
+                }
+                if let (Some(height_start), Some(height_end)) = (terms.height.0, terms.height.1) {
+                    atomic.derive(&tables::RUNES.HEIGHTSTART.select(&name.0.to_string().into_bytes()))
+                        .set_value(height_start);
+
+                    atomic.derive(&tables::RUNES.HEIGHTEND
+                        .select(&name.0.to_string().into_bytes()))
+                        .set_value(height_end);
+                }
+                if let (Some(offset_start), Some(offset_end)) = (terms.offset.0, terms.offset.1) {
+                    atomic.derive(&tables::RUNES.OFFSETSTART
+                        .select(&name.0.to_string().into_bytes()))
+                        .set_value(offset_start);
+                    atomic.derive(&tables::RUNES.OFFSETEND
+                        .select(&name.0.to_string().into_bytes()))
+                        .set_value(offset_end);
+                }
+            }
+            if let Some(symbol) = etching.symbol {
+                atomic.derive(&tables::RUNES.SYMBOL
+                    .select(&name.0.to_string().into_bytes()))
+                    .set(Arc::new(symbol.to_string().into_bytes()));
+            }
+
+            if let Some(spacers) = etching.spacers {
+                atomic.derive(&tables::RUNES.SYMBOL.select(&name.0.to_string().into_bytes())).set_value(spacers);
+            }
+
+            atomic.derive(&tables::RUNES.ETCHINGS
+                .select(&name.0.to_string().into_bytes()))
+                .append(Arc::new(name.0.to_string().into_bytes()));
+        }
         Ok(())
     }
 
