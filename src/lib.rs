@@ -408,9 +408,9 @@ impl Protorune {
         add_to_indexable_protocols(T::protocol_tag()).map_err(|e| anyhow!(e.to_string()))?;
         tables::RUNES.HEIGHT_TO_BLOCKHASH
             .select_value::<u64>(height)
-            .set(Arc::new(block.block_hash().as_byte_array().to_vec()));
+            .set(Arc::new(consensus_encode(&block.block_hash())?));
         tables::RUNES.BLOCKHASH_TO_HEIGHT
-            .select(&block.block_hash().as_byte_array().to_vec())
+            .select(&consensus_encode(&block.block_hash())?)
             .set_value::<u64>(height);
         Self::index_spendables(&block.txdata)?;
         Self::index_transaction_ids(&block, height)?;

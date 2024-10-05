@@ -70,12 +70,12 @@ mod tests {
         tables::OUTPOINTS_FOR_ADDRESS
             .keyword("bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu")
             .set(Arc::new(Vec::new()));
-        let test_val = IndexPointer::from_keyword("/blockhash/byheight/")
-            .select_value(840000 as u32)
+        let test_val = tables::RUNES.HEIGHT_TO_BLOCKHASH
+            .select_value(840000 as u64)
             .get();
-        let hex_str = display_vec_as_hex((*test_val).clone());
-        println!("{}", hex_str);
-        //assert_eq!(hex_str, expected_block_hash);
+        let hex_str = hex::encode(test_val.as_ref());
+        println!("{}", &hex_str);
+        assert_eq!(hex_str, expected_block_hash);
     }
 
     #[wasm_bindgen_test]
