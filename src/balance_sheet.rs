@@ -1,8 +1,8 @@
-use metashrew::index_pointer::{IndexPointer, KeyValuePointer};
+use metashrew::index_pointer::{ IndexPointer, KeyValuePointer };
 use ordinals::RuneId;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::{fmt, u128};
+use std::{ fmt, u128 };
 
 #[derive(Eq, PartialEq, Hash, Clone, Copy)]
 pub struct ProtoruneRuneId {
@@ -63,6 +63,20 @@ impl BalanceSheet {
     pub fn new() -> Self {
         BalanceSheet {
             balances: HashMap::new(),
+        }
+    }
+
+    pub fn from_pairs(runes: Vec<ProtoruneRuneId>, balances: Vec<u128>) -> BalanceSheet {
+        let mut sheet = BalanceSheet::new();
+        for i in 0..runes.len() {
+            sheet.set(runes[i], balances[i]);
+        }
+        return sheet;
+    }
+
+    pub fn pipe(&self, sheet: &mut BalanceSheet) -> () {
+        for (rune, balance) in &self.balances {
+            sheet.increase(*rune, *balance);
         }
     }
 
@@ -130,7 +144,7 @@ impl BalanceSheet {
             }
         }
     }
-    pub fn pipe(&self, _target: &mut BalanceSheet) {}
+
     pub fn load<T: KeyValuePointer>(ptr: &T) -> BalanceSheet {
         let runes_ptr = ptr.keyword("/runes");
         let balances_ptr = ptr.keyword("/balances");

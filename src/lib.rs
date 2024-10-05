@@ -1,7 +1,8 @@
 use crate::balance_sheet::BalanceSheet;
 use crate::message::MessageContext;
 use crate::utils::consensus_encode;
-use anyhow::{anyhow, Ok, Result};
+use anyhow::{ anyhow, Ok, Result };
+use balance_sheet::ProtoruneRuneId;
 use bitcoin::blockdata::block::Block;
 use bitcoin::hashes::Hash;
 use bitcoin::{Address, OutPoint, ScriptBuf, Transaction, TxOut};
@@ -50,10 +51,9 @@ impl Protorune {
         tx: &Transaction,
         runestone: &Runestone,
         height: u64,
-        index: u32,
+        index: u32
     ) -> Result<()> {
-        let sheets: Vec<BalanceSheet> = tx
-            .input
+        let sheets: Vec<BalanceSheet> = tx.input
             .iter()
             .map(|input| {
                 Ok(BalanceSheet::load(
@@ -71,7 +71,7 @@ impl Protorune {
             &runestone.edicts,
             &mut balances_by_output,
             &mut balance_sheet,
-            &tx.output,
+            &tx.output
         )?;
         let unallocated_to = match runestone.pointer {
             Some(v) => v,
@@ -92,7 +92,7 @@ impl Protorune {
         balance_sheet: &mut BalanceSheet,
         edict_amount: u128,
         edict_output: u32,
-        rune_id: &RuneId,
+        rune_id: &RuneId
     ) -> Result<()> {
         if !balances_by_output.contains_key(&edict_output) {
             balances_by_output.insert(edict_output, BalanceSheet::default());
@@ -115,22 +115,22 @@ impl Protorune {
         edict: &Edict,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
         balances: &mut BalanceSheet,
-        outs: &Vec<TxOut>,
+        outs: &Vec<TxOut>
     ) -> Result<()> {
         if edict.id.block == 0 && edict.id.tx != 0 {
             Err(anyhow!("invalid edict"))
         } else {
-            if edict.output as usize == tx.output.len() {
+            if (edict.output as usize) == tx.output.len() {
                 if edict.amount == 0 {
                     let count = num_op_return_outputs(tx) as u128;
                     if count != 0 {
                         let max = balances.get(&edict.id.into());
                         let mut spread: u128 = 0;
-                        for i in 0..(tx.output.len() as u32) {
+                        for i in 0..tx.output.len() as u32 {
                             if tx.output[i as usize].script_pubkey.is_op_return() {
                                 continue;
                             }
-                            let rem: u128 = if max % (count as u128) - spread != 0 {
+                            let rem: u128 = if (max % (count as u128)) - spread != 0 {
                                 1
                             } else {
                                 0
@@ -139,9 +139,9 @@ impl Protorune {
                             Self::update_balances_for_edict(
                                 balances_by_output,
                                 balances,
-                                (max / count) + rem,
+                                max / count + rem,
                                 i,
-                                &edict.id,
+                                &edict.id
                             )?;
                         }
                     }
@@ -149,7 +149,7 @@ impl Protorune {
                     let count = num_op_return_outputs(tx) as u128;
                     if count != 0 {
                         let amount = edict.amount;
-                        for i in 0..(tx.output.len() as u32) {
+                        for i in 0..tx.output.len() as u32 {
                             if tx.output[i as usize].script_pubkey.is_op_return() {
                                 continue;
                             }
@@ -158,7 +158,7 @@ impl Protorune {
                                 balances,
                                 amount,
                                 i,
-                                &edict.id,
+                                &edict.id
                             )?;
                         }
                     }
@@ -169,7 +169,7 @@ impl Protorune {
                     balances,
                     edict.amount,
                     edict.output,
-                    &edict.id,
+                    &edict.id
                 )?;
             }
             Ok(())
@@ -180,17 +180,17 @@ impl Protorune {
         edicts: &Vec<Edict>,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
         balances: &mut BalanceSheet,
-        outs: &Vec<TxOut>,
+        outs: &Vec<TxOut>
     ) -> Result<()> {
         for edict in edicts {
-            Self::process_edict(tx, edict, balances_by_output, balances, outs)?
+            Self::process_edict(tx, edict, balances_by_output, balances, outs)?;
         }
         Ok(())
     }
     pub fn handle_leftover_runes(
         balances: &mut BalanceSheet,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
-        unallocated_to: u32,
+        unallocated_to: u32
     ) -> Result<()> {
         match balances_by_output.get_mut(&unallocated_to) {
             Some(v) => balances.pipe(v),
@@ -346,9 +346,7 @@ impl Protorune {
     }
 
     pub fn index_transaction_ids(block: &Block, height: u64) -> Result<()> {
-        let ptr = tables::RUNES
-            .HEIGHT_TO_TRANSACTION_IDS
-            .select_value::<u64>(height);
+        let ptr = tables::RUNES.HEIGHT_TO_TRANSACTION_IDS.select_value::<u64>(height);
         for tx in &block.txdata {
             ptr.append(Arc::new(tx.txid().as_byte_array().to_vec()));
         }
@@ -356,9 +354,7 @@ impl Protorune {
     }
     pub fn index_outpoints(block: &Block, height: u64) -> Result<()> {
         for tx in &block.txdata {
-            let ptr = tables::RUNES
-                .OUTPOINT_TO_HEIGHT
-                .select(&tx.txid().as_byte_array().to_vec());
+            let ptr = tables::RUNES.OUTPOINT_TO_HEIGHT.select(&tx.txid().as_byte_array().to_vec());
             for i in 0..tx.output.len() {
                 ptr.select_value(i as u32).set_value(height);
             }
@@ -369,7 +365,7 @@ impl Protorune {
     pub fn index_protostones(
         tx: &Transaction,
         runestone: &Runestone,
-        vout_default: u32,
+        vout_default: u32
     ) -> Result<()> {
         let edicts = runestone.edicts.clone();
         let protostones = Protostone::from_runestone(tx, runestone)?;
@@ -381,12 +377,10 @@ impl Protorune {
     pub fn index_block<T: MessageContext>(block: Block, height: u64) -> Result<()> {
         initialized_protocol_index().map_err(|e| anyhow!(e.to_string()))?;
         add_to_indexable_protocols(T::protocol_tag()).map_err(|e| anyhow!(e.to_string()))?;
-        tables::RUNES
-            .HEIGHT_TO_BLOCKHASH
+        tables::RUNES.HEIGHT_TO_BLOCKHASH
             .select_value::<u64>(height)
             .set(Arc::new(block.block_hash().as_byte_array().to_vec()));
-        tables::RUNES
-            .BLOCKHASH_TO_HEIGHT
+        tables::RUNES.BLOCKHASH_TO_HEIGHT
             .select(&block.block_hash().as_byte_array().to_vec())
             .set_value::<u64>(height);
         Self::index_spendables(&block.txdata)?;
