@@ -35,3 +35,25 @@ pub struct MessageContextParcel {
   pub runtime_balances: Box<BalanceSheet>
 }
 
+impl Default for MessageContextParcel {
+  fn default() -> MessageContextParcel {
+    let block = bitcoin::constants::genesis_block(bitcoin::Network::Bitcoin);
+    MessageContextParcel {
+      atomic: AtomicPointer::default(),
+      runes: Vec::<IncomingRune>::default(),
+      transaction: block.txdata[0].clone(),
+      block: block.clone(),
+      height: 0,
+      outpoint: OutPoint::null(),
+      pointer: OutPoint::null(),
+      refund_pointer: OutPoint::null(),
+      calldata: Vec::<u8>::default(),
+      txid: block.txdata[0].txid(),
+      base_sheet: Box::new(BalanceSheet::default()),
+      table: Box::new(RuneTable::default()),
+      sheets: Box::new(HashMap::<u32, BalanceSheet>::default()),
+      txindex: 0,
+      runtime_balances: Box::new(BalanceSheet::default())
+    }
+  }
+}
