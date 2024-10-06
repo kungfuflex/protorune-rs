@@ -52,7 +52,7 @@ pub struct RuneTable {
 }
 
 impl RuneTable {
-    fn new() -> Self {
+    pub fn new() -> Self {
         RuneTable {
             HEIGHT_TO_BLOCKHASH: IndexPointer::from_keyword("/blockhash/byheight/"),
             BLOCKHASH_TO_HEIGHT: IndexPointer::from_keyword("/height/byblockhash/"),
@@ -78,7 +78,7 @@ impl RuneTable {
             INTERNAL_MINT: IndexPointer::from_keyword("/runes/null"),
         }
     }
-    fn for_protocol(tag: u128) -> Self {
+    pub fn for_protocol(tag: u128) -> Self {
         RuneTable {
             HEIGHT_TO_BLOCKHASH: IndexPointer::from_keyword("/runes/null"),
             BLOCKHASH_TO_HEIGHT: IndexPointer::from_keyword("/runes/null"),

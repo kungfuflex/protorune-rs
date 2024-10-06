@@ -1,8 +1,9 @@
-use metashrew::index_pointer::{ IndexPointer, KeyValuePointer };
+use anyhow::{anyhow, Result};
+use metashrew::index_pointer::{IndexPointer, KeyValuePointer};
 use ordinals::RuneId;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::{ fmt, u128 };
+use std::{fmt, u128};
 
 #[derive(Eq, PartialEq, Hash, Clone, Copy, Debug, Default)]
 pub struct ProtoruneRuneId {
@@ -28,13 +29,19 @@ impl fmt::Display for ProtoruneRuneId {
     }
 }
 
-impl From<ProtoruneRuneId> for Arc<Vec<u8>> {
+impl From<ProtoruneRuneId> for Vec<u8> {
     fn from(rune_id: ProtoruneRuneId) -> Self {
         let mut bytes = Vec::new();
 
         bytes.extend(&rune_id.block.to_le_bytes());
         bytes.extend(&rune_id.tx.to_le_bytes());
+        bytes
+    }
+}
 
+impl From<ProtoruneRuneId> for Arc<Vec<u8>> {
+    fn from(rune_id: ProtoruneRuneId) -> Self {
+        let bytes = rune_id.into();
         // Wrap the Vec in an Arc
         Arc::new(bytes)
     }
@@ -143,6 +150,23 @@ impl BalanceSheet {
                 balances_ptr.append_value::<u128>(*balance);
             }
         }
+    }
+
+    pub fn save_index<T: KeyValuePointer>(
+        &self,
+        rune: &ProtoruneRuneId,
+        ptr: &T,
+        is_cenotaph: bool,
+    ) -> Result<()> {
+        let runes_ptr = ptr.keyword("/runes");
+        let balances_ptr = ptr.keyword("/balances");
+        let balance = self.balances.get(rune).ok_or(anyhow!("no balance found"))?;
+        if *balance != 0u128 && !is_cenotaph {
+            runes_ptr.append((*rune).into());
+            balances_ptr.append_value::<u128>(*balance);
+        }
+
+        Ok(())
     }
 
     pub fn load<T: KeyValuePointer>(ptr: &T) -> BalanceSheet {

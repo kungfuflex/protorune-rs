@@ -1,9 +1,15 @@
+use crate::{
+    tables::{RuneTable, RUNES},
+    utils::consensus_encode,
+};
 use anyhow::{anyhow, Result};
 use bitcoin::{OutPoint, Txid};
+use metashrew::index_pointer::KeyValuePointer;
 use std::{
     cmp::min,
     collections::{HashMap, HashSet},
     ops::Deref,
+    sync::Arc,
 };
 
 use ordinals::Runestone;
@@ -18,7 +24,34 @@ pub struct Protoburn {
 }
 
 impl Protoburn {
-    pub fn process(&mut self, outpoint: OutPoint) -> Result<()> {
+    pub fn process(&mut self, balance_sheet: BalanceSheet, outpoint: OutPoint) -> Result<()> {
+        let table = RuneTable::for_protocol(self.tag.ok_or(anyhow!("no tag found"))?);
+        for (rune, _balance) in balance_sheet.clone().balances.into_iter() {
+            let name = RUNES.RUNE_ID_TO_ETCHING.select(&rune.into()).get();
+            let runeid: Arc<Vec<u8>> = rune.into();
+            table.RUNE_ID_TO_ETCHING.select(&runeid).set(name.clone());
+            table.ETCHING_TO_RUNE_ID.select(&name).set(runeid);
+            table
+                .SPACERS
+                .select(&name)
+                .set(RUNES.SPACERS.select(&name).get());
+            table
+                .DIVISIBILITY
+                .select(&name)
+                .set(RUNES.DIVISIBILITY.select(&name).get());
+            table
+                .SYMBOL
+                .select(&name)
+                .set(RUNES.SYMBOL.select(&name).get());
+            table.ETCHINGS.append(name);
+            balance_sheet.save_index(
+                &rune,
+                &table
+                    .OUTPOINT_TO_RUNES
+                    .select(&consensus_encode(&outpoint)?),
+                false,
+            )?
+        }
         Ok(())
     }
 }
@@ -111,11 +144,12 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
             }
         }
 
-        for burn in self {
-            burn.process(OutPoint::new(
-                txid,
-                burn.pointer.ok_or(anyhow!("no vout on protoburn"))?,
-            ))?;
+        for (i, burn) in self.into_iter().enumerate() {
+            let sheet = burn_sheets[i].clone();
+            burn.process(
+                sheet,
+                OutPoint::new(txid, burn.pointer.ok_or(anyhow!("no vout on protoburn"))?),
+            )?;
         }
         Ok(())
     }
