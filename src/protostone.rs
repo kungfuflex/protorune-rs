@@ -99,6 +99,9 @@ impl Protostone {
     }
 
     pub fn from_runestone(tx: &Transaction, runestone: &Runestone) -> Result<Vec<Self>> {
+        if let None = runestone.proto.as_ref() {
+            return Ok(vec![]);
+        }
         let protostone_raw = runestone
             .proto
             .clone()

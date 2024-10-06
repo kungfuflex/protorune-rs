@@ -419,7 +419,8 @@ impl Protorune {
             if let Some(Artifact::Runestone(ref runestone)) = Runestone::decipher(tx) {
                 let mut atomic = AtomicPointer::default();
                 match Self::index_runestone::<T>(&mut atomic, tx, runestone, height, index as u32) {
-                    Err(_) => {
+                    Err(e) => {
+ 
                         atomic.rollback();
                     }
                     _ => {
@@ -483,14 +484,15 @@ impl Protorune {
         unallocated_to: u32,
     ) -> Result<()> {
         let protostones = Protostone::from_runestone(tx, runestone)?;
-        protostones.process_burns(
+        if protostones.len() != 0 {
+          protostones.process_burns(
             runestone,
             runestone_output_index,
             balances_by_output,
             unallocated_to,
             tx.txid(),
-        )?;
-
+          )?;
+        }
         Ok(())
     }
 
@@ -509,7 +511,6 @@ impl Protorune {
         Self::index_transaction_ids(&block, height)?;
         Self::index_outpoints(&block, height)?;
         Self::index_unspendables::<T>(&block, height)?;
-        println!("got block");
         flush();
         Ok(())
     }

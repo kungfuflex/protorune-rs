@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
-use metashrew::index_pointer::{IndexPointer, KeyValuePointer};
+use metashrew::{println,stdio::{stdout},index_pointer::{IndexPointer, KeyValuePointer}};
+use std::fmt::Write;
 use ordinals::RuneId;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -172,7 +173,7 @@ impl BalanceSheet {
     pub fn load<T: KeyValuePointer>(ptr: &T) -> BalanceSheet {
         let runes_ptr = ptr.keyword("/runes");
         let balances_ptr = ptr.keyword("/balances");
-        let length = runes_ptr.length_key().get_value::<u32>();
+        let length = runes_ptr.length();
         let mut result = BalanceSheet::new();
 
         for i in 0..length {
