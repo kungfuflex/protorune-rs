@@ -46,6 +46,13 @@ pub fn num_op_return_outputs(tx: &Transaction) -> usize {
         .count()
 }
 
+pub fn num_non_op_return_outputs(tx: &Transaction) -> usize {
+    tx.output
+        .iter()
+        .filter(|out| !(*out.script_pubkey).is_op_return())
+        .count()
+}
+
 impl Protorune {
     pub fn index_runestone<T: MessageContext>(
         atomic: &mut AtomicPointer,
@@ -144,7 +151,7 @@ impl Protorune {
         } else {
             if (edict.output as usize) == tx.output.len() {
                 if edict.amount == 0 {
-                    let count = num_op_return_outputs(tx) as u128;
+                    let count = num_non_op_return_outputs(tx) as u128;
                     if count != 0 {
                         let max = balances.get(&edict.id.into());
                         let mut spread: u128 = 0;

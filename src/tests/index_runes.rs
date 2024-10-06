@@ -171,10 +171,21 @@ mod tests {
         assert_eq!(1000 as u128, stored_balance);
     }
 
-    #[wasm_bindgen_test]
-    fn correct_balance_sheet_with_transfers() {
+    ///
+    /// EDICT TRANSFER TESTS
+    /// refer to https://docs.ordinals.com/runes/specification.html#transferring
+    /// for the proper spec that I am testing
+    ///
+
+    fn edict_test(
+        edict_amount: u128,
+        edict_output: u32,
+        expected_address1_amount: u128,
+        expected_address2_amount: u128,
+    ) {
         clear();
-        let (test_block, config) = helpers::create_block_with_rune_transfer();
+        let (test_block, config) =
+            helpers::create_block_with_rune_transfer(edict_amount, edict_output);
         let _ =
             Protorune::index_block::<MyMessageContext>(test_block.clone(), config.rune_etch_height);
         let outpoint_address2: OutPoint = OutPoint {
@@ -195,7 +206,7 @@ mod tests {
                 .select(&consensus_encode(&outpoint_address1).unwrap()),
         );
         let stored_balance_address1 = sheet1.get(&protorune_id);
-        assert_eq!(800 as u128, stored_balance_address1);
+        assert_eq!(expected_address1_amount, stored_balance_address1);
 
         let sheet2 = BalanceSheet::load(
             &tables::RUNES
@@ -203,6 +214,52 @@ mod tests {
                 .select(&consensus_encode(&outpoint_address2).unwrap()),
         );
         let stored_balance_address2 = sheet2.get(&protorune_id);
-        assert_eq!(200 as u128, stored_balance_address2);
+        assert_eq!(expected_address2_amount, stored_balance_address2);
+    }
+
+    /// normal transfer works
+    #[wasm_bindgen_test]
+    fn correct_balance_sheet_with_transfers() {
+        edict_test(200, 0, 800 as u128, 200 as u128);
+    }
+
+    /// transferring more runes only transfers the amount remaining
+    #[wasm_bindgen_test]
+    fn correct_balance_sheet_transfer_too_much() {
+        edict_test(1200, 0, 0 as u128, 1000 as u128);
+    }
+
+    /// Tests that transferring runes to an outpoint > num outpoints is a cenotaph.
+    /// All runes input to a tx containing a cenotaph is burned
+    #[wasm_bindgen_test]
+    fn cenotaph_balance_sheet_transfer_bad_target() {
+        edict_test(200, 4, 0, 0);
+    }
+
+    /// Tests that transferring runes to an outpoint == OP_RETURN burns the runes.
+    #[wasm_bindgen_test]
+    fn correct_balance_sheet_transfer_target_op_return() {
+        edict_test(200, 2, 800, 0);
+    }
+
+    /// An edict with amount zero allocates all remaining units of rune id.
+    #[wasm_bindgen_test]
+    fn correct_balance_sheet_transfer_0() {
+        edict_test(0, 0, 0, 1000);
+    }
+
+    /// An edict with output == number of transaction outputs will
+    /// allocates amount runes to each non-OP_RETURN output in order
+    #[wasm_bindgen_test]
+    fn correct_balance_sheet_equal_distribute_300() {
+        edict_test(300, 3, 700, 300);
+    }
+
+    /// An edict with output == number of transaction outputs
+    /// and amount = 0 will equally distribute all remaining runes
+    /// to each non-OP_RETURN output in order
+    #[wasm_bindgen_test]
+    fn correct_balance_sheet_equal_distribute_0() {
+        edict_test(0, 3, 500, 500);
     }
 }

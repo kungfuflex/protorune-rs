@@ -226,13 +226,12 @@ pub fn create_rune_transaction(config: &RunesTestingConfig) -> Transaction {
     }
 }
 
-/// Transfer 20% of the runes from the given outpoint (runes all owned by address 1)
-/// to address 2
-
 pub fn create_rune_transfer_transaction(
     config: &RunesTestingConfig,
     previous_output: OutPoint,
     rune_id: RuneId,
+    edict_amount: u128,
+    edict_output: u32,
 ) -> Transaction {
     let input_script = ScriptBuf::new();
 
@@ -264,8 +263,8 @@ pub fn create_rune_transfer_transaction(
 
     let edict = Edict {
         id: rune_id,
-        amount: 200,
-        output: 0,
+        amount: edict_amount,
+        output: edict_output,
     };
 
     let runestone: ScriptBuf = (Runestone {
@@ -346,7 +345,24 @@ pub fn create_block_with_coinbase_tx(height: u32) -> Block {
     return create_block_with_txs(vec![create_coinbase_transaction(height)]);
 }
 
-pub fn create_block_with_rune_transfer() -> (Block, RunesTestingConfig) {
+/// Fixture with the following block:
+///  - tx0:
+///     - inputs:
+///         - [0]: dummy outpoint
+///     - outputs:
+///         - [0]: ptpkh (?) address1
+///         - [1]: runestone with etch 1000 runes to vout0
+///  - tx1:
+///     - inputs:
+///         - [0]: outpoint(tx0, vout0)
+///     - outputs:
+///         - [0]: ptpkh address2
+///         - [1]: ptpkh address1
+///         - [2]: runestone with edict to transfer to vout0, default to vout1
+pub fn create_block_with_rune_transfer(
+    edict_amount: u128,
+    edict_output: u32,
+) -> (Block, RunesTestingConfig) {
     let mut config = RunesTestingConfig::new(
         "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu",
         "bc1qwml3ckq4gtmxe7hwvs38nvt5j63gwnwwmvk5r5",
@@ -360,9 +376,14 @@ pub fn create_block_with_rune_transfer() -> (Block, RunesTestingConfig) {
         txid: tx0.txid(),
         vout: 0,
     };
-    // etch is on tx 0
     let rune_id = RuneId::new(config.rune_etch_height, config.rune_etch_vout).unwrap();
 
-    let tx1 = create_rune_transfer_transaction(&config, outpoint_with_runes, rune_id);
+    let tx1 = create_rune_transfer_transaction(
+        &config,
+        outpoint_with_runes,
+        rune_id,
+        edict_amount,
+        edict_output,
+    );
     return (create_block_with_txs(vec![tx0, tx1]), config);
 }
