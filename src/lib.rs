@@ -420,7 +420,6 @@ impl Protorune {
                 let mut atomic = AtomicPointer::default();
                 match Self::index_runestone::<T>(&mut atomic, tx, runestone, height, index as u32) {
                     Err(e) => {
- 
                         atomic.rollback();
                     }
                     _ => {
@@ -485,13 +484,13 @@ impl Protorune {
     ) -> Result<()> {
         let protostones = Protostone::from_runestone(tx, runestone)?;
         if protostones.len() != 0 {
-          protostones.process_burns(
-            runestone,
-            runestone_output_index,
-            balances_by_output,
-            unallocated_to,
-            tx.txid(),
-          )?;
+            protostones.process_burns(
+                runestone,
+                runestone_output_index,
+                balances_by_output,
+                unallocated_to,
+                tx.txid(),
+            )?;
         }
         Ok(())
     }

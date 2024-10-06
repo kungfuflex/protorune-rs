@@ -1,8 +1,12 @@
 use anyhow::{anyhow, Result};
-use metashrew::{println,stdio::{stdout},index_pointer::{IndexPointer, KeyValuePointer}};
-use std::fmt::Write;
+use metashrew::{
+    index_pointer::{IndexPointer, KeyValuePointer},
+    println,
+    stdio::stdout,
+};
 use ordinals::RuneId;
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::sync::Arc;
 use std::{fmt, u128};
 

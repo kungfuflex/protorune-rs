@@ -6,7 +6,7 @@ mod tests {
     use crate::utils::consensus_encode;
     use crate::view::View;
     use crate::Protorune;
-    use crate::{ constants, tables, view, message::{MessageContextParcel} };
+    use crate::{constants, message::MessageContextParcel, tables, view};
     use bitcoin::consensus::serialize;
     use bitcoin::hashes::Hash;
     use bitcoin::{blockdata::block::Block, Address};
