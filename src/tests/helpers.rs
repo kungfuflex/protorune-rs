@@ -1,3 +1,4 @@
+use anyhow::Error;
 use bitcoin::address::NetworkChecked;
 use bitcoin::blockdata::block::{Block, Header, Version};
 use bitcoin::blockdata::script::ScriptBuf;
@@ -7,7 +8,7 @@ use bitcoin::string::FromHexStr;
 use bitcoin::{Address, Amount, BlockHash, OutPoint, Sequence, Witness};
 use byteorder::{ByteOrder, LittleEndian};
 use core::str::FromStr;
-use ordinals::{Etching, Rune, Runestone};
+use ordinals::{Edict, Etching, Rune, RuneId, Runestone};
 use std::fmt::Write;
 use std::sync::Arc;
 
@@ -113,7 +114,61 @@ pub fn create_test_transaction() -> Transaction {
     }
 }
 
-pub fn create_rune_transaction() -> Transaction {
+pub struct RunesTestingConfig {
+    pub address1: String,
+    pub address2: String,
+    pub rune_name: String,
+    pub rune_symbol: String,
+    pub rune_etch_height: u64,
+    pub rune_etch_vout: u32,
+    // pub outpoints: Vec<OutPoint>,
+}
+
+impl RunesTestingConfig {
+    pub fn new(
+        address1: &str,
+        address2: &str,
+        rune_name: &str,
+        rune_symbol: &str,
+        rune_etch_height: u64,
+        rune_etch_vout: u32,
+    ) -> RunesTestingConfig {
+        RunesTestingConfig {
+            address1: String::from(address1),
+            address2: String::from(address2),
+            rune_name: String::from(rune_name),
+            rune_symbol: String::from(rune_symbol),
+            rune_etch_height,
+            rune_etch_vout,
+            // outpoints: vec![OutPoint {
+            //     txid: bitcoin::Txid::from_str(
+            //         "0000000000000000000000000000000000000000000000000000000000000000",
+            //     )
+            //     .unwrap(),
+            //     vout: 0,
+            // }],
+        }
+    }
+
+    // pub fn get_previous_outpoint(&self) -> OutPoint {
+    //     return self.outpoints.last().expect("not possible").clone();
+    // }
+
+    // pub fn add_outpoint(&mut self, outpoint: OutPoint) {
+    //     self.outpoints.push(outpoint);
+    // }
+}
+
+pub fn get_address(address: &str) -> Address<NetworkChecked> {
+    Address::from_str(address)
+        .unwrap()
+        .require_network(bitcoin::Network::Bitcoin)
+        .unwrap()
+}
+
+/// Create a rune etching, transferring all runes to vout 0 in the tx
+/// Mocks a dummy outpoint for the previous outpoint
+pub fn create_rune_transaction(config: &RunesTestingConfig) -> Transaction {
     let previous_output = OutPoint {
         txid: bitcoin::Txid::from_str(
             "0000000000000000000000000000000000000000000000000000000000000000",
@@ -131,15 +186,11 @@ pub fn create_rune_transaction() -> Transaction {
         witness: Witness::new(),
     };
 
-    let address_str = "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu";
-
-    let address: Address<NetworkChecked> = Address::from_str(&address_str)
-        .unwrap()
-        .require_network(bitcoin::Network::Bitcoin)
-        .unwrap();
+    let address: Address<NetworkChecked> = get_address(&config.address1);
 
     let script_pubkey = address.script_pubkey();
 
+    // tx vout 0 will hold all 1000 of the runes
     let txout = TxOut {
         value: Amount::from_sat(100_000_000).to_sat(),
         script_pubkey,
@@ -149,9 +200,9 @@ pub fn create_rune_transaction() -> Transaction {
         etching: Some(Etching {
             divisibility: Some(2),
             premine: Some(1000),
-            rune: Some(Rune::from_str("TESTER").unwrap()),
+            rune: Some(Rune::from_str(&config.rune_name).unwrap()),
             spacers: Some(0),
-            symbol: Some(char::from_str("Z").unwrap()),
+            symbol: Some(char::from_str(&config.rune_symbol).unwrap()),
             turbo: true,
             terms: None,
         }),
@@ -172,6 +223,70 @@ pub fn create_rune_transaction() -> Transaction {
         lock_time: bitcoin::absolute::LockTime::ZERO,
         input: vec![txin],
         output: vec![txout, op_return],
+    }
+}
+
+/// Transfer 20% of the runes from the given outpoint (runes all owned by address 1)
+/// to address 2
+
+pub fn create_rune_transfer_transaction(
+    config: &RunesTestingConfig,
+    previous_output: OutPoint,
+    rune_id: RuneId,
+) -> Transaction {
+    let input_script = ScriptBuf::new();
+
+    // Create a transaction input
+    let txin = TxIn {
+        previous_output,
+        script_sig: input_script,
+        sequence: Sequence::MAX,
+        witness: Witness::new(),
+    };
+
+    let address1 = get_address(&config.address1);
+    let address2 = get_address(&config.address2);
+
+    let script_pubkey1 = address1.script_pubkey();
+    let script_pubkey2 = address2.script_pubkey();
+
+    // tx vout 0 corresponds to address2 will hold all 200 of the runes
+    let txout0 = TxOut {
+        value: Amount::from_sat(1).to_sat(),
+        script_pubkey: script_pubkey2,
+    };
+
+    // tx vout 1 corresponds to address1 and will hold 800 of the runes
+    let txout1 = TxOut {
+        value: Amount::from_sat(99_999_999).to_sat(),
+        script_pubkey: script_pubkey1,
+    };
+
+    let edict = Edict {
+        id: rune_id,
+        amount: 200,
+        output: 0,
+    };
+
+    let runestone: ScriptBuf = (Runestone {
+        etching: None,
+        pointer: Some(1), // refund to vout 1
+        edicts: vec![edict],
+        mint: None,
+        proto: None,
+    })
+    .encipher();
+
+    let op_return = TxOut {
+        value: Amount::from_sat(0).to_sat(),
+        script_pubkey: runestone,
+    };
+
+    Transaction {
+        version: 1,
+        lock_time: bitcoin::absolute::LockTime::ZERO,
+        input: vec![txin],
+        output: vec![txout0, txout1, op_return],
     }
 }
 
@@ -212,10 +327,42 @@ pub fn create_block_with_sample_tx() -> Block {
     return create_block_with_txs(vec![create_test_transaction()]);
 }
 
-pub fn create_block_with_rune_tx() -> Block {
-    return create_block_with_txs(vec![create_rune_transaction()]);
+pub fn create_block_with_rune_tx() -> (Block, RunesTestingConfig) {
+    let config = RunesTestingConfig::new(
+        "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu",
+        "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fym",
+        "TESTER",
+        "Z",
+        840001,
+        0,
+    );
+    return (
+        create_block_with_txs(vec![create_rune_transaction(&config)]),
+        config,
+    );
 }
 
 pub fn create_block_with_coinbase_tx(height: u32) -> Block {
     return create_block_with_txs(vec![create_coinbase_transaction(height)]);
+}
+
+pub fn create_block_with_rune_transfer() -> (Block, RunesTestingConfig) {
+    let mut config = RunesTestingConfig::new(
+        "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu",
+        "bc1qwml3ckq4gtmxe7hwvs38nvt5j63gwnwwmvk5r5",
+        "TESTER",
+        "Z",
+        840001,
+        0,
+    );
+    let tx0 = create_rune_transaction(&config);
+    let outpoint_with_runes = OutPoint {
+        txid: tx0.txid(),
+        vout: 0,
+    };
+    // etch is on tx 0
+    let rune_id = RuneId::new(config.rune_etch_height, config.rune_etch_vout).unwrap();
+
+    let tx1 = create_rune_transfer_transaction(&config, outpoint_with_runes, rune_id);
+    return (create_block_with_txs(vec![tx0, tx1]), config);
 }
