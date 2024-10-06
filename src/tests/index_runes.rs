@@ -3,6 +3,7 @@ mod tests {
     use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
     use crate::message::MessageContext;
     use crate::tests::helpers;
+    use crate::tests::helpers::{display_list_as_hex, display_vec_as_hex};
     use crate::utils::consensus_encode;
     use crate::view::View;
     use crate::Protorune;
@@ -37,30 +38,10 @@ mod tests {
         }
     }
 
-    fn display_vec_as_hex(data: Vec<u8>) -> String {
-        let mut hex_string = String::new();
-        for byte in data {
-            write!(&mut hex_string, "{:02x}", byte).expect("Unable to write");
-        }
-        hex_string
-    }
-
-    fn display_list_as_hex(data: Vec<Arc<Vec<u8>>>) -> String {
-        let mut hex_string = String::new();
-
-        for arc_data in data {
-            for byte in arc_data.to_vec().iter() {
-                write!(&mut hex_string, "{:02x}", byte).expect("Unable to write");
-            }
-        }
-
-        hex_string
-    }
-
     #[wasm_bindgen_test]
     fn height_blockhash() {
         clear();
-        let test_block = helpers::create_block_with_coinbase(840000);
+        let test_block = helpers::create_block_with_coinbase_tx(840000);
         let expected_block_hash =
             display_vec_as_hex(test_block.block_hash().as_byte_array().to_vec());
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840000);
@@ -82,7 +63,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn spendable_by_address() {
         clear();
-        let test_block = helpers::create_block_with_tx(false);
+        let test_block = helpers::create_block_with_sample_tx();
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
         tables::OUTPOINTS_FOR_ADDRESS
             .keyword("bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu")
@@ -125,7 +106,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn outpoints_by_address() {
         clear();
-        let test_block = helpers::create_block_with_tx(false);
+        let test_block = helpers::create_block_with_sample_tx();
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
         let outpoint: OutPoint = OutPoint {
             txid: Txid::from_str(
@@ -148,7 +129,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn index_runestone() {
         clear();
-        let test_block = helpers::create_block_with_tx(true);
+        let test_block = helpers::create_block_with_rune_tx();
         tables::OUTPOINTS_FOR_ADDRESS
             .keyword("bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu")
             .set(Arc::new(Vec::new()));
@@ -164,7 +145,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn correct_balance_sheet() {
         clear();
-        let test_block = helpers::create_block_with_tx(true);
+        let test_block = helpers::create_block_with_rune_tx();
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840000);
         let outpoint: OutPoint = OutPoint {
             txid: Txid::from_str(
