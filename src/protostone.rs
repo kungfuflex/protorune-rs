@@ -1,11 +1,15 @@
-use crate::{byte_utils::ByteUtils, protoburn::Protoburn};
+use crate::{
+    balance_sheet::BalanceSheet,
+    byte_utils::ByteUtils,
+    protoburn::{Protoburn, Protoburns},
+};
 use anyhow::{anyhow, Result};
-use bitcoin::Transaction;
+use bitcoin::{Transaction, Txid};
 use ordinals::{
     runestone::{message::Message, tag::Tag},
     varint, Edict, Runestone,
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 static mut PROTOCOLS: Option<HashSet<u128>> = None;
 
@@ -144,19 +148,45 @@ impl Protostone {
 }
 
 pub trait Protostones {
-    fn burns(protostones: Self) -> Result<Vec<Protoburn>>;
+    fn burns(&self) -> Result<Vec<Protoburn>>;
+    fn process_burns(
+        &self,
+        runestone: &Runestone,
+        runestone_output_index: u32,
+        balances_by_output: &HashMap<u32, BalanceSheet>,
+        default_output: u32,
+        txid: Txid,
+    ) -> Result<()>;
 }
 
 impl Protostones for Vec<Protostone> {
-    fn burns(protostones: Self) -> Result<Vec<Protoburn>> {
-        Ok(protostones
+    fn burns(&self) -> Result<Vec<Protoburn>> {
+        Ok(self
             .into_iter()
             .filter(|stone| stone.burn.is_some())
             .map(|stone| Protoburn {
                 tag: stone.burn,
                 pointer: stone.pointer,
-                from: stone.from,
+                from: stone.from.clone(),
             })
             .collect())
+    }
+    fn process_burns(
+        &self,
+        runestone: &Runestone,
+        runestone_output_index: u32,
+        balances_by_output: &HashMap<u32, BalanceSheet>,
+        default_output: u32,
+        txid: Txid,
+    ) -> Result<()> {
+        let mut burns = self.burns()?;
+        burns.process(
+            runestone,
+            runestone_output_index,
+            balances_by_output,
+            default_output,
+            txid,
+        )?;
+        Ok(())
     }
 }
