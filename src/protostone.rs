@@ -1,11 +1,13 @@
 use crate::{
     balance_sheet::BalanceSheet,
     byte_utils::ByteUtils,
+    message::{MessageContext, MessageContextParcel},
+    tables::{RuneTable},
     protoburn::{Protoburn, Protoburns},
-    message::{MessageContext}
 };
+use metashrew::index_pointer::{IndexPointer, KeyValuePointer, AtomicPointer};
 use anyhow::{anyhow, Result};
-use bitcoin::{Transaction, Txid};
+use bitcoin::{Block, OutPoint, Transaction, Txid};
 use ordinals::{
     runestone::{message::Message, tag::Tag},
     varint, Edict, Runestone,
@@ -45,6 +47,7 @@ pub struct Protostone {
     pub refund: Option<u32>,
     pub pointer: Option<u32>,
     pub from: Option<Vec<u32>>,
+    pub protocol_tag: u128
 }
 
 fn varint_byte_len(input: &Vec<u8>, n: u128) -> Result<usize> {
@@ -63,10 +66,10 @@ impl Protostone {
         self.edicts = Some(edicts);
     }
     pub fn is_message(&self) -> bool {
-      !self.message.is_empty()
+        !self.message.is_empty()
     }
 
-    pub fn from_bytes(tx: &Transaction, bytes: Vec<u8>) -> Result<Self> {
+    pub fn from_bytes(tx: &Transaction, protocol_tag: u128, bytes: Vec<u8>) -> Result<Self> {
         let integers =
             Runestone::integers(&bytes.as_slice()).map_err(|e| anyhow!(e.to_string()))?;
         let Message {
@@ -90,6 +93,7 @@ impl Protostone {
             },
             refund: Tag::Refund.take(&mut fields, |[tag]| Some(tag as u32)),
             pointer: Tag::ProtoPointer.take(&mut fields, |[tag]| Some(tag as u32)),
+            protocol_tag,
             from: Some(
                 Tag::From
                     .take_all(&mut fields)
@@ -144,6 +148,7 @@ impl Protostone {
             if has_protocol(&protocol_tag)? {
                 protostones.push(Protostone::from_bytes(
                     tx,
+                    protocol_tag,
                     (&protostone_bytes[0..byte_length]).to_vec(),
                 )?);
             }
@@ -164,13 +169,18 @@ pub trait Protostones {
         default_output: u32,
         txid: Txid,
     ) -> Result<()>;
-    fn process_messages(
+    fn process_messages<T: MessageContext>(
         &self,
+        atomic: &mut AtomicPointer,
+        transaction: &Transaction,
+        txindex: u32,
+        block: &Block,
+        height: u64,
         runestone: &Runestone,
         runestone_output_index: u32,
-        balances_by_output: &mut HashMap<u32, BalanceSheet>,
+        balances_by_output: &HashMap<u32, BalanceSheet>,
         default_output: u32,
-        txid: Txid
+        txid: Txid,
     ) -> Result<()>;
 }
 
@@ -206,7 +216,7 @@ impl Protostones for Vec<Protostone> {
     }
     fn process_messages<T: MessageContext>(
         &self,
-        atomic: &AtomicPointer,
+        atomic: &mut AtomicPointer,
         transaction: &Transaction,
         txindex: u32,
         block: &Block,
@@ -215,29 +225,42 @@ impl Protostones for Vec<Protostone> {
         runestone_output_index: u32,
         balances_by_output: &HashMap<u32, BalanceSheet>,
         default_output: u32,
-        txid: Txid
+        txid: Txid,
     ) -> Result<()> {
-        if self.is_message() {
-          if T::handle(Box::new(MessageContextParcel {
-             atomic: atomic.derive(&IndexPointer::default()),
-             runes: balances_by_output.get(runestone_output_index).ok_or(|| BalanceSheet::default()).into(),
-             transaction: transaction.clone(),
-             block: block.clone(),
-             height,
-             outpoint: OutPoint::null(),
-             pointer: self.pointer.ok_or(|| default_output),
-             refund_pointer: self.pointer.ok_or(|| default_output),
-             calldata: self.message.map(|v| v.to_be_bytes()).flatten().collect::<Vec<u8>>(),
-             txid: txid.clone(),
-             base_sheet: balances_by_output.get(runestone_output_index).ok_or(|| BalanceSheet::default()),
-             sheets: Box::new(balances_by_output.clone()),
-             txindex,
-             runtime_balances: Box::new(BalanceSheet::default())
-           })) {
-              atomic.commit();
-          } else {
-              atomic.rollback();
-          }
+        for item in self {
+            if item.is_message() {
+                atomic.checkpoint();
+                if T::handle(Box::new(MessageContextParcel {
+                    atomic: atomic.derive(&IndexPointer::default()),
+                    runes: balances_by_output
+                        .get(&runestone_output_index).map(|v| v.clone())
+                        .unwrap_or_else(|| BalanceSheet::default()).clone()
+                        .into(),
+                    transaction: transaction.clone(),
+                    block: block.clone(),
+                    height,
+                    outpoint: OutPoint::null(),
+                    pointer: item.pointer.unwrap_or_else(|| default_output),
+                    refund_pointer: item.pointer.unwrap_or_else(|| default_output),
+                    calldata: item
+                        .message.iter()
+                        .map(|v| v.to_be_bytes())
+                        .flatten()
+                        .collect::<Vec<u8>>(),
+                    txid: txid.clone(),
+                    base_sheet: Box::new(balances_by_output
+                        .get(&runestone_output_index).map(|v| v.clone())
+                        .unwrap_or_else(|| BalanceSheet::default()).clone()),
+                    sheets: Box::new(balances_by_output.clone()),
+                    txindex,
+                    table: Box::new(RuneTable::for_protocol(item.protocol_tag)),
+                    runtime_balances: Box::new(BalanceSheet::default()),
+                })) {
+                    atomic.commit();
+                } else {
+                    atomic.rollback();
+                }
+            }
         }
         Ok(())
     }

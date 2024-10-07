@@ -1,5 +1,5 @@
 use crate::{
-    balance_sheet::ProtoruneRuneId,
+    balance_sheet::{ProtoruneRuneId, BalanceSheet},
     message::{MessageContextParcel, ToBytes},
 };
 use anyhow::{anyhow, Result};
@@ -16,6 +16,24 @@ pub struct IncomingRune {
     refund_pointer_index: i32,
     outpoint_index: i32,
     context: Arc<MessageContextParcel>,
+}
+
+impl From<BalanceSheet> for Vec<IncomingRune> {
+  fn from(v: BalanceSheet) -> Vec<IncomingRune> {
+    v.balances.iter().map(|(id, v)| {
+      IncomingRune {
+        rune: id.clone(),
+        amount: *v,
+        deposit_amount: 0,
+        initial_amount: *v,
+        pointer_index: 0,
+        refund_pointer_index: 0,
+        outpoint_index: 0,
+        context: Arc::new(MessageContextParcel::default())
+      }
+    }).collect::<Vec<IncomingRune>>()
+  }
+  
 }
 
 impl IncomingRune {
@@ -39,11 +57,14 @@ impl IncomingRune {
       TODO: Implement all the base functions
     ----------------------------- */
     pub fn refund(&self, amount: u128) -> Result<()> {
+        /*
+         * TODO: implement logic
         self.context
             .table
             .OUTPOINT_TO_RUNES
             .select(&self.context.refund_pointer.try_to_bytes()?)
             .get();
+        */
         Ok(())
     }
 
