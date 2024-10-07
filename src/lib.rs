@@ -61,6 +61,7 @@ impl Protorune {
         runestone: &Runestone,
         height: u64,
         index: u32,
+        runestone_output_index: u32
     ) -> Result<()> {
         let sheets: Vec<BalanceSheet> = tx
             .input
@@ -109,11 +110,15 @@ impl Protorune {
             );
         }
         Self::index_protostones(
+            &mut atomic,
             tx,
-            runestone,
             index,
+            block,
+            height,
+            runestone,
+            runestone_output_index,
             &mut balances_by_output,
-            unallocated_to,
+            unallocated_to
         )?;
         Ok(())
     }
@@ -439,7 +444,7 @@ impl Protorune {
         Ok(())
     }
     pub fn index_spendables(txdata: &Vec<Transaction>) -> Result<()> {
-        for transaction in txdata {
+        for (txindex, transaction) in txdata.iter().enumerate() {
             let tx_id = transaction.txid();
             for (index, output) in transaction.output.iter().enumerate() {
                 let outpoint = OutPoint {
@@ -484,7 +489,11 @@ impl Protorune {
     }
 
     pub fn index_protostones(
+        atomic: &mut AtomicPointer,
         tx: &Transaction,
+        txindex: u32,
+        block: &Block,
+        height: u64,
         runestone: &Runestone,
         runestone_output_index: u32,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
@@ -498,6 +507,18 @@ impl Protorune {
                 balances_by_output,
                 unallocated_to,
                 tx.txid(),
+            )?;
+            protostones.process_messages::<T>(
+                atomic,
+                tx,
+                txindex, 
+                block,
+                height,
+                runestone,
+                runestone_output_index,
+                balances_by_output,
+                unallocated_to,
+                tx.txid()
             )?;
         }
         Ok(())
