@@ -2,6 +2,7 @@ use crate::{
     balance_sheet::BalanceSheet,
     byte_utils::ByteUtils,
     protoburn::{Protoburn, Protoburns},
+    message::{MessageContext}
 };
 use anyhow::{anyhow, Result};
 use bitcoin::{Transaction, Txid};
@@ -60,6 +61,9 @@ fn varint_byte_len(input: &Vec<u8>, n: u128) -> Result<usize> {
 impl Protostone {
     pub fn append_edicts(&mut self, edicts: Vec<Edict>) {
         self.edicts = Some(edicts);
+    }
+    pub fn is_message(&self) -> bool {
+      !self.message.is_empty()
     }
 
     pub fn from_bytes(tx: &Transaction, bytes: Vec<u8>) -> Result<Self> {
@@ -160,6 +164,14 @@ pub trait Protostones {
         default_output: u32,
         txid: Txid,
     ) -> Result<()>;
+    fn process_messages(
+        &self,
+        runestone: &Runestone,
+        runestone_output_index: u32,
+        balances_by_output: &mut HashMap<u32, BalanceSheet>,
+        default_output: u32,
+        txid: Txid
+    ) -> Result<()>;
 }
 
 impl Protostones for Vec<Protostone> {
@@ -190,6 +202,43 @@ impl Protostones for Vec<Protostone> {
             default_output,
             txid,
         )?;
+        Ok(())
+    }
+    fn process_messages<T: MessageContext>(
+        &self,
+        atomic: &AtomicPointer,
+        transaction: &Transaction,
+        txindex: u32,
+        block: &Block,
+        height: u64,
+        runestone: &Runestone,
+        runestone_output_index: u32,
+        balances_by_output: &HashMap<u32, BalanceSheet>,
+        default_output: u32,
+        txid: Txid
+    ) -> Result<()> {
+        if self.is_message() {
+          if T::handle(Box::new(MessageContextParcel {
+             atomic: atomic.derive(&IndexPointer::default()),
+             runes: balances_by_output.get(runestone_output_index).ok_or(|| BalanceSheet::default()).into(),
+             transaction: transaction.clone(),
+             block: block.clone(),
+             height,
+             outpoint: OutPoint::null(),
+             pointer: self.pointer.ok_or(|| default_output),
+             refund_pointer: self.pointer.ok_or(|| default_output),
+             calldata: self.message.map(|v| v.to_be_bytes()).flatten().collect::<Vec<u8>>(),
+             txid: txid.clone(),
+             base_sheet: balances_by_output.get(runestone_output_index).ok_or(|| BalanceSheet::default()),
+             sheets: Box::new(balances_by_output.clone()),
+             txindex,
+             runtime_balances: Box::new(BalanceSheet::default())
+           })) {
+              atomic.commit();
+          } else {
+              atomic.rollback();
+          }
+        }
         Ok(())
     }
 }
