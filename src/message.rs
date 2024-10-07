@@ -1,5 +1,8 @@
 use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
+use crate::incoming_rune::IncomingRune;
 use crate::tables::RuneTable;
+use crate::utils::consensus_encode;
+use anyhow::Result;
 use bitcoin::{Block, OutPoint, Transaction, Txid};
 use metashrew::index_pointer::AtomicPointer;
 use std::collections::HashMap;
@@ -8,12 +11,6 @@ use std::u128;
 pub trait MessageContext {
     fn handle(parcel: Box<MessageContextParcel>) -> bool;
     fn protocol_tag() -> u128;
-}
-
-#[derive(Clone, Default)]
-pub struct IncomingRune {
-    pub rune: ProtoruneRuneId,
-    pub amount: u128,
 }
 
 #[derive(Clone)]
@@ -33,6 +30,16 @@ pub struct MessageContextParcel {
     pub sheets: Box<HashMap<u32, BalanceSheet>>,
     pub txindex: u32,
     pub runtime_balances: Box<BalanceSheet>,
+}
+
+pub trait ToBytes {
+    fn try_to_bytes(&self) -> Result<Vec<u8>>;
+}
+
+impl ToBytes for OutPoint {
+    fn try_to_bytes(&self) -> Result<Vec<u8>> {
+        Ok(consensus_encode(self)?)
+    }
 }
 
 impl Default for MessageContextParcel {
