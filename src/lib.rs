@@ -182,7 +182,7 @@ impl Protorune {
                         }
                     }
                 } else {
-                    let count = num_op_return_outputs(tx) as u128;
+                    let count = num_non_op_return_outputs(tx) as u128;
                     if count != 0 {
                         let amount = edict.amount;
                         for i in 0..tx.output.len() as u32 {

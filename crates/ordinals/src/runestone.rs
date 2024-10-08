@@ -10,6 +10,7 @@ pub struct Runestone {
     pub etching: Option<Etching>,
     pub mint: Option<RuneId>,
     pub pointer: Option<u32>,
+    // This proto field must be LEB encoded
     pub proto: Option<Vec<u128>>,
 }
 
@@ -46,7 +47,11 @@ impl Runestone {
             mut flaw,
             edicts,
             mut fields,
-        } = Message::from_integers(transaction, &integers);
+        } = Message::from_integers(
+            u32::try_from(transaction.output.len()).unwrap(),
+            &integers,
+            true, // runes edicts need to check the output <= num outputs
+        );
 
         let mut flags = Tag::Flags
             .take(&mut fields, |[flags]| Some(flags))
@@ -169,6 +174,14 @@ impl Runestone {
         }
 
         Tag::Pointer.encode_option(self.pointer, &mut payload);
+
+        // encipher proto
+        if let Some(protostones) = &self.proto {
+            // Tag::Protocol.encode(protostones, &mut payload);
+            for proto_u128 in protostones {
+                Tag::Protocol.encode([*proto_u128], &mut payload);
+            }
+        }
 
         if !self.edicts.is_empty() {
             varint::encode_to_vec(Tag::Body.into(), &mut payload);

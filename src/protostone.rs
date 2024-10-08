@@ -2,12 +2,12 @@ use crate::{
     balance_sheet::BalanceSheet,
     byte_utils::ByteUtils,
     message::{MessageContext, MessageContextParcel},
-    tables::{RuneTable},
     protoburn::{Protoburn, Protoburns},
+    tables::RuneTable,
 };
-use metashrew::index_pointer::{IndexPointer, KeyValuePointer, AtomicPointer};
 use anyhow::{anyhow, Result};
 use bitcoin::{Block, OutPoint, Transaction, Txid};
+use metashrew::index_pointer::{AtomicPointer, IndexPointer, KeyValuePointer};
 use ordinals::{
     runestone::{message::Message, tag::Tag},
     varint, Edict, Runestone,
@@ -47,7 +47,7 @@ pub struct Protostone {
     pub refund: Option<u32>,
     pub pointer: Option<u32>,
     pub from: Option<Vec<u32>>,
-    pub protocol_tag: u128
+    pub protocol_tag: u128,
 }
 
 fn varint_byte_len(input: &Vec<u8>, n: u128) -> Result<usize> {
@@ -69,14 +69,18 @@ impl Protostone {
         !self.message.is_empty()
     }
 
-    pub fn from_bytes(tx: &Transaction, protocol_tag: u128, bytes: Vec<u8>) -> Result<Self> {
+    pub fn from_bytes(num_outputs: u32, protocol_tag: u128, bytes: Vec<u8>) -> Result<Self> {
         let integers =
             Runestone::integers(&bytes.as_slice()).map_err(|e| anyhow!(e.to_string()))?;
         let Message {
             edicts,
             flaw,
             mut fields,
-        } = Message::from_integers(tx, &integers);
+        } = Message::from_integers(
+            num_outputs,
+            &integers,
+            false, // protostone edicts can have outputs > num outputs
+        );
         // Can either throw or not throw
         if let Some(_) = flaw {
             return Err(anyhow!("protostone flawed"));
@@ -106,6 +110,28 @@ impl Protostone {
         })
     }
 
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut payload = Vec::new();
+
+        Tag::Burn.encode(self.burn, &mut payload);
+
+        for m in self.message {
+            Tag::Message.encode([m], &mut payload)
+        }
+
+        Tag::Refund.encode_option(self.refund, &mut payload);
+
+        Tag::ProtoPointer.encode_option(self.pointer, &mut payload);
+
+        Tag::ProtoPointer.encode_option(self.pointer, &mut payload);
+
+        // TODO: finish
+
+        payload
+    }
+
+    pub fn protostones_to_vec_u128(protostones: Vec<Protostone>) -> Vec<u128> {}
+
     pub fn from_runestone(tx: &Transaction, runestone: &Runestone) -> Result<Vec<Self>> {
         if let None = runestone.proto.as_ref() {
             return Ok(vec![]);
@@ -114,6 +140,15 @@ impl Protostone {
             .proto
             .clone()
             .ok_or(anyhow!("no protostone field in runestone"))?;
+
+        Protostone::from_vec_u128(&protostone_raw, u32::try_from(tx.output.len()).unwrap())
+    }
+
+    /// Gets a vector of Protostones from an arbituary vector of bytes
+    ///
+    /// protostone_raw: LEB encoded Protostone
+    /// num_outputs: needed to check that the edicts of the protostone do not exceed the
+    pub fn from_vec_u128(protostone_raw: &Vec<u128>, num_outputs: u32) -> Result<Vec<Self>> {
         let protostone_raw_len = protostone_raw.len();
         let mut protostone_bytes = protostone_raw
             .into_iter()
@@ -147,7 +182,7 @@ impl Protostone {
             let byte_length = varint_byte_len(&protostone_bytes, len)?;
             if has_protocol(&protocol_tag)? {
                 protostones.push(Protostone::from_bytes(
-                    tx,
+                    num_outputs,
                     protocol_tag,
                     (&protostone_bytes[0..byte_length]).to_vec(),
                 )?);
@@ -157,6 +192,8 @@ impl Protostone {
 
         Ok(protostones)
     }
+
+    // when encoding a Protostone into the first layer of LEB encoding, we need to make sure it only uses the first
 }
 
 pub trait Protostones {
@@ -233,8 +270,10 @@ impl Protostones for Vec<Protostone> {
                 if T::handle(Box::new(MessageContextParcel {
                     atomic: atomic.derive(&IndexPointer::default()),
                     runes: balances_by_output
-                        .get(&runestone_output_index).map(|v| v.clone())
-                        .unwrap_or_else(|| BalanceSheet::default()).clone()
+                        .get(&runestone_output_index)
+                        .map(|v| v.clone())
+                        .unwrap_or_else(|| BalanceSheet::default())
+                        .clone()
                         .into(),
                     transaction: transaction.clone(),
                     block: block.clone(),
@@ -243,14 +282,19 @@ impl Protostones for Vec<Protostone> {
                     pointer: item.pointer.unwrap_or_else(|| default_output),
                     refund_pointer: item.pointer.unwrap_or_else(|| default_output),
                     calldata: item
-                        .message.iter()
+                        .message
+                        .iter()
                         .map(|v| v.to_be_bytes())
                         .flatten()
                         .collect::<Vec<u8>>(),
                     txid: txid.clone(),
-                    base_sheet: Box::new(balances_by_output
-                        .get(&runestone_output_index).map(|v| v.clone())
-                        .unwrap_or_else(|| BalanceSheet::default()).clone()),
+                    base_sheet: Box::new(
+                        balances_by_output
+                            .get(&runestone_output_index)
+                            .map(|v| v.clone())
+                            .unwrap_or_else(|| BalanceSheet::default())
+                            .clone(),
+                    ),
                     sheets: Box::new(balances_by_output.clone()),
                     txindex,
                     table: Box::new(RuneTable::for_protocol(item.protocol_tag)),

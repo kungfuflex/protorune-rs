@@ -67,14 +67,16 @@ impl Tag {
         Some(value)
     }
 
-    pub(super) fn encode<const N: usize>(self, values: [u128; N], payload: &mut Vec<u8>) {
+    /// note: removed pub(super) on the following two functinos so we can use them
+    /// inside the protorunes context
+    pub fn encode<const N: usize>(self, values: [u128; N], payload: &mut Vec<u8>) {
         for value in values {
             varint::encode_to_vec(self.into(), payload);
             varint::encode_to_vec(value, payload);
         }
     }
 
-    pub(super) fn encode_option<T: Into<u128>>(self, value: Option<T>, payload: &mut Vec<u8>) {
+    pub fn encode_option<T: Into<u128>>(self, value: Option<T>, payload: &mut Vec<u8>) {
         if let Some(value) = value {
             self.encode([value.into()], payload)
         }
