@@ -1,10 +1,9 @@
 use crate::{
-    balance_sheet::{ProtoruneRuneId, BalanceSheet},
-    message::{MessageContextParcel, ToBytes},
+    balance_sheet::{BalanceSheet, ProtoruneRuneId},
+    tables::RuneTable,
 };
-use anyhow::{anyhow, Result};
-use metashrew::index_pointer::KeyValuePointer;
-use std::sync::Arc;
+use anyhow::Result;
+use metashrew::index_pointer::AtomicPointer;
 
 #[derive(Clone, Default)]
 pub struct IncomingRune {
@@ -15,43 +14,26 @@ pub struct IncomingRune {
     pointer_index: i32,
     refund_pointer_index: i32,
     outpoint_index: i32,
-    context: Arc<MessageContextParcel>,
-}
-
-impl From<BalanceSheet> for Vec<IncomingRune> {
-  fn from(v: BalanceSheet) -> Vec<IncomingRune> {
-    v.balances.iter().map(|(id, v)| {
-      IncomingRune {
-        rune: id.clone(),
-        amount: *v,
-        deposit_amount: 0,
-        initial_amount: *v,
-        pointer_index: 0,
-        refund_pointer_index: 0,
-        outpoint_index: 0,
-        context: Arc::new(MessageContextParcel::default())
-      }
-    }).collect::<Vec<IncomingRune>>()
-  }
-  
+    atomic: AtomicPointer,
+    table: RuneTable,
 }
 
 impl IncomingRune {
-    pub fn from_message(
-        rune: ProtoruneRuneId,
-        amount: u128,
-        parcel: Arc<MessageContextParcel>,
-    ) -> Self {
-        Self {
-            context: parcel.clone(),
-            rune,
-            amount,
-            deposit_amount: 0,
-            initial_amount: amount,
-            pointer_index: -1,
-            refund_pointer_index: -1,
-            outpoint_index: -1,
-        }
+    pub fn from_balance_sheet(s: BalanceSheet, tag: u128, atomic: &mut AtomicPointer) -> Vec<Self> {
+        s.balances
+            .iter()
+            .map(|(id, v)| Self {
+                rune: id.clone(),
+                amount: *v,
+                deposit_amount: 0,
+                initial_amount: *v,
+                pointer_index: -1,
+                refund_pointer_index: -1,
+                outpoint_index: -1,
+                atomic: atomic.clone(),
+                table: RuneTable::for_protocol(tag),
+            })
+            .collect::<Vec<IncomingRune>>()
     }
     /* -------------------------
       TODO: Implement all the base functions

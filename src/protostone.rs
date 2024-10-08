@@ -1,6 +1,7 @@
 use crate::{
     balance_sheet::BalanceSheet,
     byte_utils::ByteUtils,
+    incoming_rune::IncomingRune,
     message::{MessageContext, MessageContextParcel},
     protoburn::{Protoburn, Protoburns},
     tables::RuneTable,
@@ -114,7 +115,7 @@ impl Protostone {
         let mut payload = Vec::new();
 
         if let Some(v) = self.burn {
-            Tag::Burn.encode([ v ], &mut payload);
+            Tag::Burn.encode([v], &mut payload);
         }
 
         for m in &self.message {
@@ -132,7 +133,9 @@ impl Protostone {
         payload
     }
 
-    pub fn protostones_to_vec_u128(protostones: Vec<Protostone>) -> Vec<u128> { vec![] }
+    pub fn protostones_to_vec_u128(protostones: Vec<Protostone>) -> Vec<u128> {
+        vec![]
+    }
 
     pub fn from_runestone(tx: &Transaction, runestone: &Runestone) -> Result<Vec<Self>> {
         if let None = runestone.proto.as_ref() {
@@ -271,12 +274,15 @@ impl Protostones for Vec<Protostone> {
                 atomic.checkpoint();
                 if T::handle(Box::new(MessageContextParcel {
                     atomic: atomic.derive(&IndexPointer::default()),
-                    runes: balances_by_output
-                        .get(&runestone_output_index)
-                        .map(|v| v.clone())
-                        .unwrap_or_else(|| BalanceSheet::default())
-                        .clone()
-                        .into(),
+                    runes: IncomingRune::from_balance_sheet(
+                        balances_by_output
+                            .get(&runestone_output_index)
+                            .map(|v| v.clone())
+                            .unwrap_or_else(|| BalanceSheet::default())
+                            .clone(),
+                        item.protocol_tag,
+                        &mut atomic.clone(),
+                    ),
                     transaction: transaction.clone(),
                     block: block.clone(),
                     height,
