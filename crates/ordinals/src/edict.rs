@@ -21,7 +21,7 @@ impl Edict {
 
         // note that this allows `output == tx.output.len()`, which means to divide
         // amount between all non-OP_RETURN outputs
-        if check && output > num_outputs {
+        if check_outputs && output > num_outputs {
             return None;
         }
 

@@ -113,10 +113,12 @@ impl Protostone {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut payload = Vec::new();
 
-        Tag::Burn.encode(self.burn, &mut payload);
+        if let Some(v) = self.burn {
+            Tag::Burn.encode([ v ], &mut payload);
+        }
 
-        for m in self.message {
-            Tag::Message.encode([m], &mut payload)
+        for m in &self.message {
+            Tag::Message.encode([*m], &mut payload);
         }
 
         Tag::Refund.encode_option(self.refund, &mut payload);
@@ -130,7 +132,7 @@ impl Protostone {
         payload
     }
 
-    pub fn protostones_to_vec_u128(protostones: Vec<Protostone>) -> Vec<u128> {}
+    pub fn protostones_to_vec_u128(protostones: Vec<Protostone>) -> Vec<u128> { vec![] }
 
     pub fn from_runestone(tx: &Transaction, runestone: &Runestone) -> Result<Vec<Self>> {
         if let None = runestone.proto.as_ref() {
@@ -155,9 +157,9 @@ impl Protostone {
             .enumerate()
             .map(|(i, v)| -> Vec<u8> {
                 if i == protostone_raw_len - 1 {
-                    <u128 as ByteUtils>::snap_to_15_bytes(v)
+                    <u128 as ByteUtils>::snap_to_15_bytes(*v)
                 } else {
-                    <u128 as ByteUtils>::to_aligned_bytes(v)
+                    <u128 as ByteUtils>::to_aligned_bytes(*v)
                 }
             })
             .flatten()
