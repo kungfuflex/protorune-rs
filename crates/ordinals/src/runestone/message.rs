@@ -7,7 +7,7 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn from_integers(tx: &Transaction, payload: &[u128]) -> Self {
+    pub fn from_integers(num_outputs: u32, payload: &[u128], check_outputs: bool) -> Self {
         let mut edicts = Vec::new();
         let mut fields = HashMap::<u128, VecDeque<u128>>::new();
         let mut flaw = None;
@@ -28,7 +28,9 @@ impl Message {
                         break;
                     };
 
-                    let Some(edict) = Edict::from_integers(tx, next, chunk[2], chunk[3]) else {
+                    let Some(edict) =
+                        Edict::from_integers(num_outputs, next, chunk[2], chunk[3], check_outputs)
+                    else {
                         flaw.get_or_insert(Flaw::EdictOutput);
                         break;
                     };
