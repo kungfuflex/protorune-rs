@@ -61,6 +61,7 @@ impl Protorune {
         runestone: &Runestone,
         height: u64,
         index: u32,
+        block: &Block,
         runestone_output_index: u32
     ) -> Result<()> {
         let sheets: Vec<BalanceSheet> = tx
@@ -109,8 +110,8 @@ impl Protorune {
                 false,
             );
         }
-        Self::index_protostones(
-            &mut atomic,
+        Self::index_protostones::<T>(
+            atomic,
             tx,
             index,
             block,
@@ -431,7 +432,8 @@ impl Protorune {
         for (index, tx) in block.txdata.iter().enumerate() {
             if let Some(Artifact::Runestone(ref runestone)) = Runestone::decipher(tx) {
                 let mut atomic = AtomicPointer::default();
-                match Self::index_runestone::<T>(&mut atomic, tx, runestone, height, index as u32) {
+                let mut runestone_output_index: u32 = 42;
+                match Self::index_runestone::<T>(&mut atomic, tx, runestone, height, index as u32, block, runestone_output_index) {
                     Err(e) => {
                         atomic.rollback();
                     }
@@ -488,7 +490,7 @@ impl Protorune {
         Ok(())
     }
 
-    pub fn index_protostones(
+    pub fn index_protostones<T: MessageContext>(
         atomic: &mut AtomicPointer,
         tx: &Transaction,
         txindex: u32,
