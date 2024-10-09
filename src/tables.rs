@@ -132,6 +132,3 @@ pub static OUTPOINT_SPENDABLE_BY: Lazy<IndexPointer> =
     Lazy::new(|| IndexPointer::from_keyword("/outpoint/spendableby/"));
 pub static OUTPOINT_TO_OUTPUT: Lazy<IndexPointer> =
     Lazy::new(|| IndexPointer::from_keyword("/output/byoutpoint/"));
-
-pub static OUTPOINT_TO_RUNES: Lazy<IndexPointer> =
-    Lazy::new(|| IndexPointer::from_keyword("/runes/byoutpoint/"));

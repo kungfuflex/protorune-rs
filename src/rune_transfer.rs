@@ -9,15 +9,22 @@ use metashrew::index_pointer::AtomicPointer;
 pub struct RuneTransfer {
     pub id: ProtoruneRuneId,
     pub value: u128,
+    pub to: u32,
 }
 
 impl RuneTransfer {
-    pub fn from_balance_sheet(s: BalanceSheet, tag: u128, atomic: &mut AtomicPointer) -> Vec<Self> {
+    pub fn from_balance_sheet(
+        s: BalanceSheet,
+        tag: u128,
+        atomic: &mut AtomicPointer,
+        refund_pointer: u32,
+    ) -> Vec<Self> {
         s.balances
             .iter()
             .map(|(id, v)| Self {
                 id: id.clone(),
-                value: *v
+                value: *v,
+                to: refund_pointer,
             })
             .collect::<Vec<RuneTransfer>>()
     }

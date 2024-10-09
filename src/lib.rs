@@ -19,10 +19,10 @@ use std::sync::Arc;
 pub mod balance_sheet;
 pub mod byte_utils;
 pub mod constants;
-pub mod rune_transfer;
 pub mod message;
 pub mod protoburn;
 pub mod protostone;
+pub mod rune_transfer;
 pub mod tables;
 #[cfg(test)]
 pub mod tests;
@@ -62,15 +62,19 @@ impl Protorune {
         height: u64,
         index: u32,
         block: &Block,
-        runestone_output_index: u32
+        runestone_output_index: u32,
     ) -> Result<()> {
         let sheets: Vec<BalanceSheet> = tx
             .input
             .iter()
             .map(|input| {
-                Ok(BalanceSheet::load(&mut atomic.derive(
-                    &tables::OUTPOINT_TO_RUNES.select(&consensus_encode(&input.previous_output)?),
-                )))
+                Ok(BalanceSheet::load(
+                    &mut atomic.derive(
+                        &tables::RUNE
+                            .OUTPOINT_TO_RUNES
+                            .select(&consensus_encode(&input.previous_output)?),
+                    ),
+                ))
             })
             .collect::<Result<Vec<BalanceSheet>>>()?;
         let mut balance_sheet = BalanceSheet::concat(sheets);
@@ -105,8 +109,11 @@ impl Protorune {
         for (vout, sheet) in balances_by_output.clone() {
             let outpoint = OutPoint::new(tx.txid(), vout);
             sheet.save(
-                &mut atomic
-                    .derive(&tables::OUTPOINT_TO_RUNES.select(&consensus_encode(&outpoint)?)),
+                &mut atomic.derive(
+                    &tables::RUNES
+                        .OUTPOINT_TO_RUNES
+                        .select(&consensus_encode(&outpoint)?),
+                ),
                 false,
             );
         }
@@ -119,7 +126,7 @@ impl Protorune {
             runestone,
             runestone_output_index,
             &mut balances_by_output,
-            unallocated_to
+            unallocated_to,
         )?;
         Ok(())
     }
@@ -433,7 +440,15 @@ impl Protorune {
             if let Some(Artifact::Runestone(ref runestone)) = Runestone::decipher(tx) {
                 let mut atomic = AtomicPointer::default();
                 let mut runestone_output_index: u32 = 42;
-                match Self::index_runestone::<T>(&mut atomic, tx, runestone, height, index as u32, block, runestone_output_index) {
+                match Self::index_runestone::<T>(
+                    &mut atomic,
+                    tx,
+                    runestone,
+                    height,
+                    index as u32,
+                    block,
+                    runestone_output_index,
+                ) {
                     Err(e) => {
                         atomic.rollback();
                     }
@@ -503,6 +518,22 @@ impl Protorune {
     ) -> Result<()> {
         let protostones = Protostone::from_runestone(tx, runestone)?;
         if protostones.len() != 0 {
+            let mut proto_balances_by_output = HashMap::<u32, BalanceSheet>::new();
+            let table = tables::RuneTable::for_protocol(T::protocol_tag());
+            let sheets: Vec<BalanceSheet> = tx
+                .input
+                .iter()
+                .map(|input| {
+                    Ok(BalanceSheet::load(
+                        &mut atomic.derive(
+                            &table
+                                .OUTPOINT_TO_RUNES
+                                .select(&consensus_encode(&input.previous_output)?),
+                        ),
+                    ))
+                })
+                .collect::<Result<Vec<BalanceSheet>>>()?;
+            let mut balance_sheet = BalanceSheet::concat(sheets);
             protostones.process_burns(
                 runestone,
                 runestone_output_index,
@@ -510,18 +541,49 @@ impl Protorune {
                 unallocated_to,
                 tx.txid(),
             )?;
-            protostones.process_messages::<T>(
-                atomic,
-                tx,
-                txindex, 
-                block,
-                height,
-                runestone,
-                runestone_output_index,
-                balances_by_output,
-                unallocated_to,
-                tx.txid()
-            )?;
+            protostones
+                .into_iter()
+                .map(|stone| {
+                    if stone.edicts.is_some() {
+                        Self::process_edicts(
+                            tx,
+                            &stone.edicts.clone().ok_or(anyhow!("no edicts"))?,
+                            &mut proto_balances_by_output,
+                            &mut balance_sheet,
+                            &tx.output,
+                        )?;
+                        Self::handle_leftover_runes(
+                            &mut balance_sheet,
+                            &mut proto_balances_by_output.clone(),
+                            unallocated_to,
+                        )?;
+                        for (vout, sheet) in balances_by_output.clone() {
+                            let outpoint = OutPoint::new(tx.txid(), vout);
+                            sheet.save(
+                                &mut atomic.derive(
+                                    &table
+                                        .OUTPOINT_TO_RUNES
+                                        .select(&consensus_encode(&outpoint)?),
+                                ),
+                                false,
+                            );
+                        }
+                    }
+                    if stone.is_message() {
+                        stone.process_message::<T>(
+                            atomic,
+                            tx,
+                            txindex,
+                            block,
+                            height,
+                            runestone_output_index,
+                            &proto_balances_by_output,
+                            unallocated_to,
+                        )?;
+                    }
+                    Ok(())
+                })
+                .collect::<Result<()>>();
         }
         Ok(())
     }

@@ -2,12 +2,14 @@
 mod tests {
     use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
     use crate::message::MessageContext;
+    use crate::rune_transfer::RuneTransfer;
     use crate::tests::helpers;
     use crate::tests::helpers::{display_list_as_hex, display_vec_as_hex};
     use crate::utils::consensus_encode;
     use crate::view::View;
     use crate::Protorune;
     use crate::{constants, message::MessageContextParcel, tables, view};
+    use anyhow::Result;
     use bitcoin::consensus::serialize;
     use bitcoin::hashes::Hash;
     use bitcoin::{blockdata::block::Block, Address};
@@ -30,8 +32,9 @@ mod tests {
     struct MyMessageContext(());
 
     impl MessageContext for MyMessageContext {
-        fn handle(_parcel: Box<MessageContextParcel>) -> bool {
-            false
+        fn handle(_parcel: &MessageContextParcel) -> Result<(Vec<RuneTransfer>, BalanceSheet)> {
+            let ar: Vec<RuneTransfer> = vec![];
+            Ok((ar, BalanceSheet::default()))
         }
         fn protocol_tag() -> u128 {
             100

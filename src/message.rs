@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::u128;
 
 pub trait MessageContext {
-    fn handle(parcel: &MessageContextParcel) -> Result<(Vec<OutgoingRune>, BalanceSheet)>;
+    fn handle(parcel: &MessageContextParcel) -> Result<(Vec<RuneTransfer>, BalanceSheet)>;
     fn protocol_tag() -> u128;
 }
 
@@ -52,6 +52,7 @@ impl Default for MessageContextParcel {
             calldata: Vec::<u8>::default(),
             txindex: 0,
             runtime_balances: Box::new(BalanceSheet::default()),
+            sheets: Box::new(BalanceSheet::default()),
         }
     }
 }
