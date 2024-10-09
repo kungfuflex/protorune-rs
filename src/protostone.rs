@@ -92,16 +92,16 @@ impl Protostone {
                         .map(|v| v.clone())
                         .unwrap_or_else(|| BalanceSheet::default())
                         .clone(),
-                    item.protocol_tag,
+                    self.protocol_tag,
                     &mut atomic.derive(&IndexPointer::default()),
-                    item.refund.unwrap_or_else(|| default_output),
+                    self.refund.unwrap_or_else(|| default_output),
                 ),
                 transaction: transaction.clone(),
                 block: block.clone(),
                 height,
-                pointer: item.pointer.unwrap_or_else(|| default_output),
-                refund_pointer: item.pointer.unwrap_or_else(|| default_output),
-                calldata: item
+                pointer: self.pointer.unwrap_or_else(|| default_output),
+                refund_pointer: self.pointer.unwrap_or_else(|| default_output),
+                calldata: self
                     .message
                     .iter()
                     .map(|v| v.to_be_bytes())

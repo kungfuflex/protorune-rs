@@ -70,7 +70,7 @@ impl Protorune {
             .map(|input| {
                 Ok(BalanceSheet::load(
                     &mut atomic.derive(
-                        &tables::RUNE
+                        &tables::RUNES
                             .OUTPOINT_TO_RUNES
                             .select(&consensus_encode(&input.previous_output)?),
                     ),
