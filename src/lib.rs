@@ -583,7 +583,7 @@ impl Protorune {
                     }
                     Ok(())
                 })
-                .collect::<Result<()>>();
+                .collect::<Result<()>>()?;
         }
         Ok(())
     }

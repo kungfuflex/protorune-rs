@@ -9,7 +9,6 @@ use metashrew::index_pointer::AtomicPointer;
 pub struct RuneTransfer {
     pub id: ProtoruneRuneId,
     pub value: u128,
-    pub to: u32,
 }
 
 impl RuneTransfer {
@@ -23,8 +22,7 @@ impl RuneTransfer {
             .iter()
             .map(|(id, v)| Self {
                 id: id.clone(),
-                value: *v,
-                to: refund_pointer,
+                value: *v
             })
             .collect::<Vec<RuneTransfer>>()
     }

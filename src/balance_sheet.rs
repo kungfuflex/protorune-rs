@@ -188,3 +188,11 @@ impl BalanceSheet {
         result
     }
 }
+
+impl From<Vec<RunesTransfer>> for BalanceSheet {
+  fn from(v: Vec<RunesTransfer>) -> BalanceSheet {
+     BalanceSheet {
+       balances: HashMap::<ProtoruneRuneId, u128>::from_iter(v.into_iter().map(|v| (v.id, v.value)))
+     }
+  }
+}

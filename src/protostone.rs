@@ -100,7 +100,7 @@ impl Protostone {
                 block: block.clone(),
                 height,
                 pointer: self.pointer.unwrap_or_else(|| default_output),
-                refund_pointer: self.pointer.unwrap_or_else(|| default_output),
+                refund_pointer: self.refund.unwrap_or_else(|| default_output),
                 calldata: self
                     .message
                     .iter()
@@ -113,7 +113,9 @@ impl Protostone {
             };
             match T::handle(&parcel) {
                 Ok((outgoing_runes, runtime_balances)) => {
-                    // TODO: check invariant
+                    let outgoing = BalanceSheet::merge(&runtime_balances, &outgoing_runes.into());
+                    let incoming = BalanceSheet::merge(&
+                    
                     atomic.commit();
                 }
                 Err(_) => {
