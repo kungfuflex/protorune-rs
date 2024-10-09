@@ -91,6 +91,15 @@ impl BalanceSheet {
             sheet.increase(*rune, *balance);
         }
     }
+    pub fn debit(&mut self, sheet: &BalanceSheet) -> Result<()> {
+        for (rune, balance) in &sheet {
+            if sheet.get(rune) > self.get(rune) {
+                return Err(anyhow!("balance underflow"));
+            }
+            self.decrease(*rune, *balance);
+        }
+    
+    }
 
     pub fn inspect(&self) -> String {
         let mut base = String::from("balances: [\n");

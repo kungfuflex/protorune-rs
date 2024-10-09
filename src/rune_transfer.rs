@@ -37,32 +37,19 @@ pub trait OutgoingRunes {
 impl OutgoingRunes for (Vec<RuneTransfer>, BalanceSheet) {
     fn reconcile(
         &self,
-        _initial_sheet: BalanceSheet,
-        pointer: u32,
-        refund_pointer: u32,
-    ) -> Result<HashMap<u32, BalanceSheet>> {
-        let mut balances_by_output = HashMap::<u32, BalanceSheet>::new();
-        let mut initial_sheet = _initial_sheet.clone();
-        let mut sheet = BalanceSheet::default();
-        self.clone()
-            .0
-            .into_iter()
-            .map(|transfer| {
-                sheet.increase(transfer.id, transfer.value);
-                initial_sheet.decrease(transfer.id, transfer.value);
-            })
-            .for_each(drop);
-        balances_by_output.insert(pointer, sheet);
-        self.clone()
-            .1
-            .balances
-            .into_iter()
-            .map(|(id, value)| {
-                initial_sheet.decrease(id, value);
-            })
-            .for_each(drop);
-        balances_by_output.insert(u32::MAX, self.clone().1);
-        balances_by_output.insert(refund_pointer, initial_sheet);
-        Ok(balances_by_output)
+        balances_by_output: &mut HashMap<u32, BalanceSheet>,
+        vout: u32,
+        pointer: u32
+        refund_pointer: u32
+    ) -> Result<()> {
+        let mut runtime_initial = balances_by_output.get(u32::MAX).unwrap_or_else(|| BalanceSheet::default());
+        let mut incoming_initial = balances_by_output.get(vout).clone();
+        let mut initial = BalanceSheet::merge(&incoming_initial, &runtime_initial);
+        let outgoing: BalanceSheet = self.0.into();
+        initial.debit(&outgoing)?;
+        self.1.clone().debit(&initial)?;
+        balances_by_output.insert(u32::MAX, self.1);
+        balances_by_output.insert(pointer, &initial);   
+        Ok(())
     }
 }
