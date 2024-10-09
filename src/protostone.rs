@@ -3,7 +3,7 @@ use crate::{
     byte_utils::ByteUtils,
     message::{MessageContext, MessageContextParcel},
     protoburn::{Protoburn, Protoburns},
-    rune_transfer::RuneTransfer,
+    rune_transfer::{OutgoingRunes, RuneTransfer},
     tables::RuneTable,
 };
 use anyhow::{anyhow, Result};
@@ -83,18 +83,17 @@ impl Protostone {
         default_output: u32,
     ) -> Result<()> {
         if self.is_message() {
+            let initial_sheet = balances_by_output
+                .get(&runestone_output_index)
+                .map(|v| v.clone())
+                .unwrap_or_else(|| BalanceSheet::default());
             atomic.checkpoint();
             let parcel = MessageContextParcel {
                 atomic: atomic.derive(&IndexPointer::default()),
                 runes: RuneTransfer::from_balance_sheet(
-                    balances_by_output
-                        .get(&runestone_output_index)
-                        .map(|v| v.clone())
-                        .unwrap_or_else(|| BalanceSheet::default())
-                        .clone(),
+                    initial_sheet.clone(),
                     self.protocol_tag,
                     &mut atomic.derive(&IndexPointer::default()),
-                    self.refund.unwrap_or_else(|| default_output),
                 ),
                 transaction: transaction.clone(),
                 block: block.clone(),
@@ -112,8 +111,12 @@ impl Protostone {
                 sheets: Box::new(BalanceSheet::default()),
             };
             match T::handle(&parcel) {
-                Ok((outgoing_runes, runtime_balances)) => {
-                    // TODO: check invariant
+                Ok(values) => {
+                    let balances_by_output = values.reconcile(
+                        initial_sheet,
+                        self.pointer.ok_or(anyhow!("no pointer"))?,
+                        self.refund.ok_or(anyhow!("no refund pointer"))?,
+                    );
                     atomic.commit();
                 }
                 Err(_) => {
