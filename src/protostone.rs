@@ -256,6 +256,9 @@ impl Protostone {
             protostone_bytes.drain(0..byte_length);
         }
 
+        }
+    }
+
         Ok(protostones)
     }
 
