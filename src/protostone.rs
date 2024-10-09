@@ -272,21 +272,20 @@ impl Protostones for Vec<Protostone> {
         for item in self {
             if item.is_message() {
                 atomic.checkpoint();
-                if T::handle(Box::new(MessageContextParcel {
+                let parcel = MessageContextParcel {
                     atomic: atomic.derive(&IndexPointer::default()),
-                    runes: IncomingRune::from_balance_sheet(
+                    runes: RuneTransfer::from_balance_sheet(
                         balances_by_output
                             .get(&runestone_output_index)
                             .map(|v| v.clone())
                             .unwrap_or_else(|| BalanceSheet::default())
                             .clone(),
                         item.protocol_tag,
-                        &mut atomic.clone(),
+                        &mut atomic.derive(&IndexPointer::default())
                     ),
                     transaction: transaction.clone(),
                     block: block.clone(),
                     height,
-                    outpoint: OutPoint::null(),
                     pointer: item.pointer.unwrap_or_else(|| default_output),
                     refund_pointer: item.pointer.unwrap_or_else(|| default_output),
                     calldata: item
@@ -296,21 +295,17 @@ impl Protostones for Vec<Protostone> {
                         .flatten()
                         .collect::<Vec<u8>>(),
                     txid: txid.clone(),
-                    base_sheet: Box::new(
-                        balances_by_output
-                            .get(&runestone_output_index)
-                            .map(|v| v.clone())
-                            .unwrap_or_else(|| BalanceSheet::default())
-                            .clone(),
-                    ),
-                    sheets: Box::new(balances_by_output.clone()),
                     txindex,
-                    table: Box::new(RuneTable::for_protocol(item.protocol_tag)),
                     runtime_balances: Box::new(BalanceSheet::default()),
-                })) {
+                };
+                match T::handle(&parcel) {
+                  Ok((outgoing_runes, runtime_balances)) => {
+                    // TODO: check invariant
                     atomic.commit();
-                } else {
+                  },
+                  Err(_) => {
                     atomic.rollback();
+                  }
                 }
             }
         }
