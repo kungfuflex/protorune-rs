@@ -28,10 +28,11 @@ impl RuneTransfer {
 pub trait OutgoingRunes {
     fn reconcile(
         &self,
-        initial_sheet: BalanceSheet,
+        balances_by_output: &mut HashMap<u32, BalanceSheet>,
+        vout: u32,
         pointer: u32,
         refund_pointer: u32,
-    ) -> Result<HashMap<u32, BalanceSheet>>;
+    ) -> Result<()>;
 }
 
 impl OutgoingRunes for (Vec<RuneTransfer>, BalanceSheet) {
@@ -39,17 +40,17 @@ impl OutgoingRunes for (Vec<RuneTransfer>, BalanceSheet) {
         &self,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
         vout: u32,
-        pointer: u32
+        pointer: u32,
         refund_pointer: u32
     ) -> Result<()> {
-        let mut runtime_initial = balances_by_output.get(u32::MAX).unwrap_or_else(|| BalanceSheet::default());
-        let mut incoming_initial = balances_by_output.get(vout).clone();
+        let mut runtime_initial = balances_by_output.get(&u32::MAX).map(|v| BalanceSheet::default()).unwrap_or_else(|| BalanceSheet::default());
+        let mut incoming_initial = balances_by_output.get(&vout).ok_or(|| Err(anyhow!("balance sheet not found")))?.clone();
         let mut initial = BalanceSheet::merge(&incoming_initial, &runtime_initial);
         let outgoing: BalanceSheet = self.0.into();
         initial.debit(&outgoing)?;
         self.1.clone().debit(&initial)?;
         balances_by_output.insert(u32::MAX, self.1);
-        balances_by_output.insert(pointer, &initial);   
+        balances_by_output.insert(pointer, initial);   
         Ok(())
     }
 }

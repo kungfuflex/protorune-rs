@@ -2,14 +2,14 @@ use crate::balance_sheet::BalanceSheet;
 use crate::message::MessageContext;
 use crate::utils::consensus_encode;
 use anyhow::{anyhow, Ok, Result};
-use balance_sheet::ProtoruneRuneId;
+use balance_sheet::ProtoruneProtoruneRuneId;
 use bitcoin::blockdata::block::Block;
 use bitcoin::hashes::Hash;
 use bitcoin::{Address, OutPoint, ScriptBuf, Transaction, TxOut};
 use metashrew::index_pointer::{AtomicPointer, KeyValuePointer};
 use metashrew::{flush, println, stdout};
 use ordinals::{Artifact, Runestone};
-use ordinals::{Edict, Etching, RuneId};
+use ordinals::{Edict, Etching, ProtoruneRuneId};
 use protostone::{add_to_indexable_protocols, initialized_protocol_index, Protostone, Protostones};
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -64,11 +64,11 @@ impl Protorune {
         block: &Block,
         runestone_output_index: u32,
     ) -> Result<()> {
-        let sheets: Vec<BalanceSheet> = tx
+        let sheets: Vec<BalanceSheet<ProtoruneRuneId>> = tx
             .input
             .iter()
             .map(|input| {
-                Ok(BalanceSheet::load(
+                Ok(BalanceSheet::<ProtoruneRuneId>::load(
                     &mut atomic.derive(
                         &tables::RUNES
                             .OUTPOINT_TO_RUNES
@@ -76,9 +76,9 @@ impl Protorune {
                     ),
                 ))
             })
-            .collect::<Result<Vec<BalanceSheet>>>()?;
-        let mut balance_sheet = BalanceSheet::concat(sheets);
-        let mut balances_by_output = HashMap::<u32, BalanceSheet>::new();
+            .collect::<Result<Vec<BalanceSheet<ProtoruneRuneId>>>>()?;
+        let mut balance_sheet = BalanceSheet::<ProtoruneRuneId>::concat(sheets);
+        let mut balances_by_output = HashMap::<u32, BalanceSheet::<ProtoruneRuneId>>::new();
         if let Some(etching) = runestone.etching.as_ref() {
             Self::index_etching(
                 atomic,
@@ -131,16 +131,16 @@ impl Protorune {
         Ok(())
     }
     pub fn update_balances_for_edict(
-        balances_by_output: &mut HashMap<u32, BalanceSheet>,
-        balance_sheet: &mut BalanceSheet,
+        balances_by_output: &mut HashMap<u32, BalanceSheet<ProtoruneRuneId>>,
+        balance_sheet: &mut BalanceSheet<ProtoruneRuneId>,
         edict_amount: u128,
         edict_output: u32,
-        rune_id: &RuneId,
+        rune_id: &ProtoruneRuneId,
     ) -> Result<()> {
         if !balances_by_output.contains_key(&edict_output) {
-            balances_by_output.insert(edict_output, BalanceSheet::default());
+            balances_by_output.insert(edict_output, BalanceSheet::<ProtoruneRuneId>::default());
         }
-        let sheet: &mut BalanceSheet = balances_by_output
+        let sheet: &mut BalanceSheet<ProtoruneRuneId> = balances_by_output
             .get_mut(&edict_output)
             .ok_or("")
             .map_err(|_| anyhow!("balance sheet not present"))?;
@@ -149,15 +149,15 @@ impl Protorune {
         } else {
             std::cmp::min(edict_amount, balance_sheet.get(&(*rune_id).into()))
         };
-        balance_sheet.decrease((*rune_id).into(), amount);
-        sheet.increase((*rune_id).into(), amount);
+        balance_sheet.decrease(rune_id, amount);
+        sheet.increase(rune_id, amount);
         Ok(())
     }
     pub fn process_edict(
         tx: &Transaction,
         edict: &Edict,
-        balances_by_output: &mut HashMap<u32, BalanceSheet>,
-        balances: &mut BalanceSheet,
+        balances_by_output: &mut HashMap<u32, BalanceSheet<ProtoruneRuneId>>,
+        balances: &mut BalanceSheet<ProtoruneRuneId>,
         outs: &Vec<TxOut>,
     ) -> Result<()> {
         if edict.id.block == 0 && edict.id.tx != 0 {
@@ -221,8 +221,8 @@ impl Protorune {
     pub fn process_edicts(
         tx: &Transaction,
         edicts: &Vec<Edict>,
-        balances_by_output: &mut HashMap<u32, BalanceSheet>,
-        balances: &mut BalanceSheet,
+        balances_by_output: &mut HashMap<u32, BalanceSheet<ProtoruneRuneId>>,
+        balances: &mut BalanceSheet<ProtoruneRuneId>,
         outs: &Vec<TxOut>,
     ) -> Result<()> {
         for edict in edicts {
@@ -231,8 +231,8 @@ impl Protorune {
         Ok(())
     }
     pub fn handle_leftover_runes(
-        balances: &mut BalanceSheet,
-        balances_by_output: &mut HashMap<u32, BalanceSheet>,
+        balances: &mut BalanceSheet<ProtoruneRuneId>,
+        balances_by_output: &mut HashMap<u32, BalanceSheet<ProtoruneRuneId>>,
         unallocated_to: u32,
     ) -> Result<()> {
         match balances_by_output.get_mut(&unallocated_to) {
@@ -243,7 +243,7 @@ impl Protorune {
         }
         Ok(())
     }
-    pub fn index_mint(mint: &RuneId, height: u64, balance_sheet: &mut BalanceSheet) -> Result<()> {
+    pub fn index_mint(mint: &ProtoruneRuneId, height: u64, balance_sheet: &mut BalanceSheet<ProtoruneRuneId>) -> Result<()> {
         let name = tables::RUNES
             .RUNE_ID_TO_ETCHING
             .select(&mint.to_string().into_bytes())
@@ -267,7 +267,7 @@ impl Protorune {
                     .select(&name)
                     .set_value(remaining.sub(1));
                 balance_sheet.increase(
-                    ProtoruneRuneId {
+                    &ProtoruneProtoruneRuneId {
                         block: u128::from(mint.block),
                         tx: u128::from(mint.tx),
                     },
@@ -283,8 +283,8 @@ impl Protorune {
         etching: &Etching,
         index: u32,
         height: u64,
-        balance_sheet: &mut BalanceSheet,
-        balances_by_output: &mut HashMap<u32, BalanceSheet>,
+        balance_sheet: &mut BalanceSheet<ProtoruneRuneId>,
+        balances_by_output: &mut HashMap<u32, BalanceSheet<ProtoruneRuneId>>,
     ) -> Result<()> {
         if let Some(name) = etching.rune {
             //Self::get_reserved_name(height, index, name);
@@ -320,11 +320,11 @@ impl Protorune {
                             .select(&name.0.to_string().into_bytes()),
                     )
                     .set_value(premine);
-                let rune = ProtoruneRuneId {
+                let rune = ProtoruneProtoruneRuneId {
                     block: u128::from(height),
                     tx: u128::from(index),
                 };
-                let sheet = BalanceSheet::from_pairs(vec![rune], vec![premine]);
+                let sheet = BalanceSheet::<ProtoruneRuneId>::from_pairs(vec![rune], vec![premine]);
                 //.pipe(balance_sheet);
                 balances_by_output.insert(0, sheet);
             }
@@ -431,7 +431,7 @@ impl Protorune {
     // }
 
     pub fn build_rune_id(height: u64, tx: u32) -> Arc<Vec<u8>> {
-        let rune_id = RuneId::new(height, tx).unwrap().to_string().into_bytes();
+        let rune_id = ProtoruneRuneId::new(height, tx).unwrap().to_string().into_bytes();
         return Arc::new(rune_id);
     }
 
@@ -513,18 +513,18 @@ impl Protorune {
         height: u64,
         runestone: &Runestone,
         runestone_output_index: u32,
-        balances_by_output: &mut HashMap<u32, BalanceSheet>,
+        balances_by_output: &mut HashMap<u32, BalanceSheet<ProtoruneRuneId>>,
         unallocated_to: u32,
     ) -> Result<()> {
         let protostones = Protostone::from_runestone(tx, runestone)?;
         if protostones.len() != 0 {
-            let mut proto_balances_by_output = HashMap::<u32, BalanceSheet>::new();
+            let mut proto_balances_by_output = HashMap::<u32, BalanceSheet<ProtoruneRuneId>>::new();
             let table = tables::RuneTable::for_protocol(T::protocol_tag());
-            let sheets: Vec<BalanceSheet> = tx
+            let sheets: Vec<BalanceSheet<ProtoruneRuneId>> = tx
                 .input
                 .iter()
                 .map(|input| {
-                    Ok(BalanceSheet::load(
+                    Ok(BalanceSheet::<ProtoruneRuneId>::load(
                         &mut atomic.derive(
                             &table
                                 .OUTPOINT_TO_RUNES
@@ -532,8 +532,8 @@ impl Protorune {
                         ),
                     ))
                 })
-                .collect::<Result<Vec<BalanceSheet>>>()?;
-            let mut balance_sheet = BalanceSheet::concat(sheets);
+                .collect::<Result<Vec<BalanceSheet<ProtoruneRuneId>>>>()?;
+            let mut balance_sheet = BalanceSheet::<ProtoruneRuneId>::concat(sheets);
             protostones.process_burns(
                 runestone,
                 runestone_output_index,
@@ -577,7 +577,7 @@ impl Protorune {
                             block,
                             height,
                             runestone_output_index,
-                            &proto_balances_by_output,
+                            &mut proto_balances_by_output,
                             unallocated_to,
                         )?;
                     }
@@ -612,7 +612,7 @@ impl Protorune {
 
 //     const name = nameToArrayBuffer("UNCOMMONGOODS");
 //     const spacers = 128;
-//     const runeId = new RuneId(1, 0).toBytes();
+//     const runeId = new ProtoruneRuneId(1, 0).toBytes();
 //     ETCHING_TO_RUNE_ID.select(name).set(runeId);
 //     RUNE_ID_TO_ETCHING.select(runeId).set(name);
 //     RUNE_ID_TO_HEIGHT.select(runeId).setValue<u32>(GENESIS);

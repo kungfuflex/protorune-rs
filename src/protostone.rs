@@ -113,13 +113,13 @@ impl Protostone {
             match T::handle(&parcel) {
                 Ok(values) => {
                     match values.reconcile(balances_by_output, runestone_output_index, pointer, refund_pointer) {
-                      Ok(()) => atomic.commit(),
+                      Ok(_) => { atomic.commit() },
                       Err(_) => {
-                        let sheet = balances_by_output.get(runestone_output_index).map(|v| v.clone()).unwrap_or_else(|| BalanceSheet::default());
-                        balances_by_output.remove(runestone_output_index);
+                        let sheet = balances_by_output.get(&runestone_output_index).map(|v| v.clone()).unwrap_or_else(|| BalanceSheet::default());
+                        balances_by_output.remove(&runestone_output_index);
                         if !balances_by_output.contains_key(refund_pointer) {
                             balances_by_output.insert(refund_pointer, BalanceSheet::default());
-                        sheet.pipe(balances_by_output.get_mut(refund_pointer))
+                        sheet.pipe(balances_by_output.get_mut(refund_pointer).unwrap());
                         atomic.rollback()
                       }
                     }
@@ -128,8 +128,9 @@ impl Protostone {
                     atomic.rollback();
                 }
             }
-        }
-        Ok(())
+        };
+      }
+      Ok(())
     }
     pub fn from_bytes(num_outputs: u32, protocol_tag: u128, bytes: Vec<u8>) -> Result<Self> {
         let integers =

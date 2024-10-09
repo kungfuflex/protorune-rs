@@ -16,14 +16,31 @@ pub struct ProtoruneRuneId {
     pub tx: u128,
 }
 
+pub trait RuneIdentifier {
+  fn to_pair(): (u128, u128);
+}
+
 impl ProtoruneRuneId {
     pub fn new(block: u128, tx: u128) -> Self {
         ProtoruneRuneId { block, tx }
     }
 }
 
-impl From<RuneId> for ProtoruneRuneId {
-    fn from(v: RuneId) -> ProtoruneRuneId {
+impl RuneIdentifier for ProtoruneRuneId {
+  fn to_pair() -> (u128, u128) {
+    return (self.block, self.tx);
+  }
+}
+
+impl RuneIdentifier for RuneId {
+  fn to_pair() -> (u128, u128) {
+    return (self.block as u128, self.tx as u128);
+  }
+}
+
+impl<T: RuneIdentifier> From<T> for ProtoruneRuneId {
+    fn from(v: T) -> ProtoruneRuneId {
+        let (block, tx) = v.to_pair();
         ProtoruneRuneId::new(v.block as u128, v.tx as u128)
     }
 }
@@ -34,17 +51,18 @@ impl fmt::Display for ProtoruneRuneId {
     }
 }
 
-impl From<ProtoruneRuneId> for Vec<u8> {
-    fn from(rune_id: ProtoruneRuneId) -> Self {
+impl<T: RuneIdentifier> From<T> for Vec<u8> {
+    fn from(rune_id: T) -> Self {
         let mut bytes = Vec::new();
+        let (block, tx) = rune_id.to_pair()l
 
-        bytes.extend(&rune_id.block.to_le_bytes());
-        bytes.extend(&rune_id.tx.to_le_bytes());
+        bytes.extend(&block.to_le_bytes());
+        bytes.extend(&tx.to_le_bytes());
         bytes
     }
 }
 
-impl From<ProtoruneRuneId> for Arc<Vec<u8>> {
+impl<T: RuneIdentifier> From<T> for Arc<Vec<u8>> {
     fn from(rune_id: ProtoruneRuneId) -> Self {
         let bytes = rune_id.into();
         // Wrap the Vec in an Arc
@@ -67,8 +85,8 @@ impl From<Arc<Vec<u8>>> for ProtoruneRuneId {
 }
 
 #[derive(Clone, Default, Debug)]
-pub struct BalanceSheet {
-    pub balances: HashMap<ProtoruneRuneId, u128>, // Using HashMap to map runes to their balances
+pub struct BalanceSheet<T: RuneIdentifier> {
+    pub balances: HashMap<T, u128>, // Using HashMap to map runes to their balances
 }
 
 impl BalanceSheet {
@@ -78,7 +96,7 @@ impl BalanceSheet {
         }
     }
 
-    pub fn from_pairs(runes: Vec<ProtoruneRuneId>, balances: Vec<u128>) -> BalanceSheet {
+    pub fn from_pairs(runes: Vec<RuneId>, balances: Vec<u128>) -> BalanceSheet {
         let mut sheet = BalanceSheet::new();
         for i in 0..runes.len() {
             sheet.set(runes[i], balances[i]);
@@ -92,12 +110,13 @@ impl BalanceSheet {
         }
     }
     pub fn debit(&mut self, sheet: &BalanceSheet) -> Result<()> {
-        for (rune, balance) in &sheet {
-            if sheet.get(rune) > self.get(rune) {
+        for (rune, balance) in &sheet.balances {
+            if sheet.get(&rune) > self.get(&rune) {
                 return Err(anyhow!("balance underflow"));
             }
-            self.decrease(*rune, *balance);
+            self.decrease(rune, *balance);
         }
+        Ok(())
     
     }
 
@@ -118,13 +137,13 @@ impl BalanceSheet {
         self.balances.insert(rune, value);
     }
 
-    pub fn increase(&mut self, rune: ProtoruneRuneId, value: u128) {
-        let current_balance = self.get(&rune);
+    pub fn increase(&mut self, rune: &ProtoruneRuneId, value: u128) {
+        let current_balance = self.get(rune);
         self.set(rune, current_balance + value);
     }
 
-    pub fn decrease(&mut self, rune: ProtoruneRuneId, value: u128) -> bool {
-        let current_balance = self.get(&rune);
+    pub fn decrease(&mut self, rune: &ProtoruneRuneId, value: u128) -> bool {
+        let current_balance = self.get(rune);
         if current_balance < value {
             false
         } else {
