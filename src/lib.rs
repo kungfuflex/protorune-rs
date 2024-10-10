@@ -9,6 +9,7 @@ use bitcoin::{ Address, OutPoint, ScriptBuf, Transaction, TxOut };
 use metashrew::compat::{ to_arraybuffer_layout, to_ptr };
 use metashrew::index_pointer::{ AtomicPointer, KeyValuePointer };
 use metashrew::{ flush, input, println, stdout };
+use metashrew::utils::{consume_sized_int, consume_to_end};
 use ordinals::{ Artifact, Runestone };
 use ordinals::{ Edict, Etching, RuneId };
 use proto::protorune::{ WalletResponse, Output };
@@ -19,6 +20,7 @@ use std::fmt::Write;
 use std::ops::Sub;
 use std::ptr;
 use std::sync::Arc;
+use std::io::Cursor;
 
 pub mod balance_sheet;
 pub mod byte_utils;
@@ -58,10 +60,12 @@ pub fn num_non_op_return_outputs(tx: &Transaction) -> usize {
         .filter(|out| !(*out.script_pubkey).is_op_return())
         .count()
 }
+
 #[no_mangle]
 pub fn runesbyaddress() -> i32 {
-    let address: Vec<u8> = input();
-    let result: WalletResponse = view::runes_by_address(address);
+    let mut data: Cursor<Vec<u8>> = Cursor::new(input());
+    let height: u32 = consume_sized_int(&mut data).unwrap();
+    let result: WalletResponse = view::runes_by_address(height, &consume_to_end(&mut data).unwrap()).unwrap();
     println!("{:?}", result);
     return to_ptr(&mut to_arraybuffer_layout(Arc::new(result.write_to_bytes().unwrap()))) + 4;
 }

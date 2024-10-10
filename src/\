@@ -35,7 +35,7 @@ pub fn core_outpoint_to_proto(outpoint: &OutPoint) -> Outpoint {
 
 pub fn balance_sheet_to_proto(balance_sheet: &crate::balance_sheet::BalanceSheet) -> ProtoBalanceSheet {
   ProtoBalanceSheet {
-    entries: balance_sheet.balances.clone().iter().map(|(k, v)| BalanceSheetItem { special_fields: SpecialFields::new(), rune: MessageField::some(Rune { special_fields: SpecialFields::new(), runeId: MessageField::some(RuneId { special_fields: SpecialFields::new(), height: k.block as u32, txindex: k.tx as u32 }), name: "name".as_bytes().to_vec(), divisibility: 1, spacers: 1, symbol: 1 }), balance: (&v.to_le_bytes()).to_vec() }).collect::<Vec<BalanceSheetItem>>(),
+    entries: balance_sheet.balances.clone().iter().map(|(k, v)| BalanceSheetItem { special_fields: SpecialFields::new(), rune: Message::some(Rune { special_fields: SpecialFields::new(), runeId: RuneId { special_fields: SpecialFields::new(), height: k.block as u32, txindex: k.tx as u32 }, name: "name".as_bytes().to_vec(), divisibility: 1, spacers: 1, symbol: 1 }), balance: (&v.to_le_bytes()).to_vec() }).collect::<Vec<BalanceSheetItem>>(),
     special_fields: SpecialFields::new()
   }
 }

@@ -81,7 +81,8 @@ mod tests {
         );
 
         let view_test = view::runes_by_address(
-            "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes()
+            0,
+            &"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".to_string().into_bytes()
         );
 
         println!("{:?}", view_test);
