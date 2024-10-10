@@ -477,7 +477,7 @@ impl Protorune {
         Ok(())
     }
     pub fn index_outpoints(block: &Block, height: u64) -> Result<()> {
-        let atomic = AtomicPointer::default();
+        let mut atomic = AtomicPointer::default();
         for tx in &block.txdata {
             let ptr = atomic.derive(
                 &tables::RUNES.OUTPOINT_TO_HEIGHT.select(&tx.txid().as_byte_array().to_vec())
@@ -508,6 +508,7 @@ impl Protorune {
                     );
             }
         }
+        atomic.commit();
         Ok(())
     }
 
