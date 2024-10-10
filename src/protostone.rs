@@ -108,7 +108,7 @@ impl Protostone {
                     .flatten()
                     .collect::<Vec<u8>>(),
                 txindex,
-                runtime_balances: Box::new(balances_by_output.get(&u32::MAX)?.clone()),
+                runtime_balances: Box::new(balances_by_output.get(&u32::MAX).map(|v| v.clone()).unwrap_or_else(|| BalanceSheet::default())),
                 sheets: Box::new(BalanceSheet::default()),
             };
             let pointer = self.pointer.unwrap_or_else(|| default_output);
@@ -282,6 +282,9 @@ pub trait Protostones {
 }
 
 impl Protostones for Vec<Protostone> {
+    fn encipher(&self) -> Vec<u128> {
+      vec![]
+    }
     fn burns(&self) -> Result<Vec<Protoburn>> {
         Ok(self
             .into_iter()

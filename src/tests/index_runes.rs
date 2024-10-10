@@ -6,13 +6,14 @@ mod tests {
     use crate::tests::helpers;
     use crate::tests::helpers::{display_list_as_hex, display_vec_as_hex};
     use crate::utils::consensus_encode;
+    use ordinals::{Etching, Protostone, Runestone};
     use crate::Protorune;
     use crate::{constants, message::MessageContextParcel, tables, view};
     use anyhow::Result;
     use bitcoin::consensus::serialize;
     use bitcoin::hashes::Hash;
-    use bitcoin::{blockdata::block::Block, Address};
-    use bitcoin::{OutPoint, Txid};
+    use bitcoin::{Amount, blockdata::block::Block, Address};
+    use bitcoin::{TxOut, OutPoint, Txid};
     use hex;
     use metashrew::{
         clear, flush, get_cache,
@@ -46,10 +47,10 @@ mod tests {
       fn protocol_tag() -> u128 {
         1
       }
-      fn handle(parcel: &MessageContextParcel) -> Result<(Vec<RuneTransfer>, BalanceSheet> {
+      fn handle(parcel: &MessageContextParcel) -> Result<(Vec<RuneTransfer>, BalanceSheet)> {
         let mut new_runtime_balances = parcel.runtime_balances.clone();
-        parcel.runes.into().pipe(&mut new_runtime_balances);
-        Ok((vec![], new_runtime_balances))
+        <BalanceSheet as TryFrom<Vec<RuneTransfer>>>::from(parcel.runes).pipe(&mut new_runtime_balances);
+        Ok((vec![], *new_runtime_balances))
       }
     }
 
@@ -88,9 +89,9 @@ mod tests {
         etching: Some(Etching {
             divisibility: Some(2),
             premine: Some(1000),
-            rune: Some(Rune::from_str(&config.rune_name).unwrap()),
+            rune: Some(Rune::from_str("TESTTESTTEST").unwrap()),
             spacers: Some(0),
-            symbol: Some(char::from_str(&config.rune_symbol).unwrap()),
+            symbol: Some(char::from_str("TESTTESTTEST").unwrap()),
             turbo: true,
             terms: None,
         }),
@@ -110,12 +111,13 @@ mod tests {
         script_pubkey: runestone,
       };
 
-      Transaction {
+      block.txdata.push(Transaction {
         version: 1,
         lock_time: bitcoin::absolute::LockTime::ZERO,
         input: vec![txin],
         output: vec![txout, op_return],
-      }
+      });
+      Protorune::index_block::<TestMessageContext>(test_block.clone(), 840000);
     }
     #[wasm_bindgen_test]
     fn height_blockhash() {
