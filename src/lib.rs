@@ -2,24 +2,31 @@ use crate::balance_sheet::BalanceSheet;
 use crate::message::MessageContext;
 use crate::utils::consensus_encode;
 use anyhow::{anyhow, Ok, Result};
-use balance_sheet::{ProtoruneRuneId};
+use balance_sheet::ProtoruneRuneId;
 use bitcoin::blockdata::block::Block;
 use bitcoin::hashes::Hash;
 use bitcoin::{Address, OutPoint, ScriptBuf, Transaction, TxOut};
+use metashrew::compat::{to_arraybuffer_layout, to_ptr};
 use metashrew::index_pointer::{AtomicPointer, KeyValuePointer};
-use metashrew::{flush, println, stdout};
+use metashrew::utils::{consume_sized_int, consume_to_end};
+use metashrew::{flush, input, println, stdout};
 use ordinals::{Artifact, Runestone};
 use ordinals::{Edict, Etching, RuneId};
+use proto::protorune::{Output, WalletResponse};
+use protobuf::{Message, SpecialFields};
 use protostone::{add_to_indexable_protocols, initialized_protocol_index, Protostone, Protostones};
 use std::collections::HashMap;
 use std::fmt::Write;
+use std::io::Cursor;
 use std::ops::Sub;
+use std::ptr;
 use std::sync::Arc;
 
 pub mod balance_sheet;
 pub mod byte_utils;
 pub mod constants;
 pub mod message;
+pub mod proto;
 pub mod protoburn;
 pub mod protostone;
 pub mod rune_transfer;
@@ -52,6 +59,18 @@ pub fn num_non_op_return_outputs(tx: &Transaction) -> usize {
         .iter()
         .filter(|out| !(*out.script_pubkey).is_op_return())
         .count()
+}
+
+#[no_mangle]
+pub fn runesbyaddress() -> i32 {
+    let mut data: Cursor<Vec<u8>> = Cursor::new(input());
+    let height: u32 = consume_sized_int(&mut data).unwrap();
+    let result: WalletResponse =
+        view::runes_by_address(&consume_to_end(&mut data).unwrap()).unwrap();
+    println!("{:?}", result);
+    return to_ptr(&mut to_arraybuffer_layout(Arc::new(
+        result.write_to_bytes().unwrap(),
+    ))) + 4;
 }
 
 impl Protorune {
@@ -97,24 +116,6 @@ impl Protorune {
         Self::process_edicts(
             tx,
             &runestone.edicts,
-            &mut balances_by_output,
-            &mut balance_sheet,
-            &tx.output,
-        )?;
-        let unallocated_to = match runestone.pointer {
-            Some(v) => v,
-            None => default_output(tx),
-        };
-        Self::handle_leftover_runes(&mut balance_sheet, &mut balances_by_output, unallocated_to)?;
-        for (vout, sheet) in balances_by_output.clone() {
-            let outpoint = OutPoint::new(tx.txid(), vout);
-            sheet.save(
-                &mut atomic.derive(
-                    &tables::RUNES
-                        .OUTPOINT_TO_RUNES
-                        .select(&consensus_encode(&outpoint)?),
-                ),
-                false,
             &mut balances_by_output,
             &mut balance_sheet,
             &tx.output,
@@ -519,21 +520,26 @@ impl Protorune {
         Ok(())
     }
     pub fn index_outpoints(block: &Block, height: u64) -> Result<()> {
+        let mut atomic = AtomicPointer::default();
         for tx in &block.txdata {
-            let ptr = tables::RUNES
-                .OUTPOINT_TO_HEIGHT
-                .select(&tx.txid().as_byte_array().to_vec());
+            let ptr = atomic.derive(
+                &tables::RUNES
+                    .OUTPOINT_TO_HEIGHT
+                    .select(&tx.txid().as_byte_array().to_vec()),
+            );
             for i in 0..tx.output.len() {
                 ptr.select_value(i as u32).set_value(height);
-                tables::OUTPOINT_TO_OUTPUT
-                    .select(
-                        &consensus_encode(
-                            &(OutPoint {
-                                txid: tx.txid(),
-                                vout: i as u32,
-                            }),
-                        )
-                        .unwrap(),
+                atomic
+                    .derive(
+                        &tables::OUTPOINT_TO_OUTPUT.select(
+                            &consensus_encode(
+                                &(OutPoint {
+                                    txid: tx.txid(),
+                                    vout: i as u32,
+                                }),
+                            )
+                            .unwrap(),
+                        ),
                     )
                     .set(Arc::new(
                         (Output {
@@ -546,6 +552,7 @@ impl Protorune {
                     ));
             }
         }
+        atomic.commit();
         Ok(())
     }
 
@@ -630,7 +637,6 @@ impl Protorune {
                     Ok(())
                 })
                 .collect::<Result<()>>()?;
-            }
         }
         Ok(())
     }
