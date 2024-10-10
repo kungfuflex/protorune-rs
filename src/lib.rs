@@ -66,7 +66,7 @@ pub fn runesbyaddress() -> i32 {
     let mut data: Cursor<Vec<u8>> = Cursor::new(input());
     let height: u32 = consume_sized_int(&mut data).unwrap();
     let result: WalletResponse =
-        view::runes_by_address(height, &consume_to_end(&mut data).unwrap()).unwrap();
+        view::runes_by_address(&consume_to_end(&mut data).unwrap()).unwrap();
     println!("{:?}", result);
     return to_ptr(&mut to_arraybuffer_layout(Arc::new(
         result.write_to_bytes().unwrap(),
@@ -520,7 +520,7 @@ impl Protorune {
         Ok(())
     }
     pub fn index_outpoints(block: &Block, height: u64) -> Result<()> {
-        let atomic = AtomicPointer::default();
+        let mut atomic = AtomicPointer::default();
         for tx in &block.txdata {
             let ptr = atomic.derive(
                 &tables::RUNES
@@ -552,6 +552,7 @@ impl Protorune {
                     ));
             }
         }
+        atomic.commit();
         Ok(())
     }
 
