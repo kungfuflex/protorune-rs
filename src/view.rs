@@ -56,42 +56,50 @@ pub fn balance_sheet_to_proto(
     }
 }
 
+pub fn outpoint_to_outpoint_response(outpoint: &OutPoint) -> Result<OutpointResponse> {
+    let outpoint_bytes = outpoint_to_bytes(outpoint)?;
+    let balance_sheet: BalanceSheet = BalanceSheet::load(
+      &tables::RUNES.OUTPOINT_TO_RUNES.select(&outpoint_bytes),
+    );
+    let decoded_output: Output = Output::parse_from_bytes(
+      &tables::OUTPOINT_TO_OUTPUT
+       .select(&outpoint_bytes)
+       .get()
+       .as_ref(),
+    )?;
+    Ok(OutpointResponse {
+      balances: MessageField::some(balance_sheet_to_proto(&BalanceSheet::default())),
+      outpoint: MessageField::some(core_outpoint_to_proto(&outpoint)),
+      output: MessageField::some(decoded_output),
+      height: 0,
+      txindex: 0,
+      special_fields: SpecialFields::new(),
+    })
+}
+
 pub fn runes_by_address(height: u32, address: &Vec<u8>) -> Result<WalletResponse> {
     let atomic = AtomicPointer::default();
-    let outpoints = tables::OUTPOINTS_FOR_ADDRESS
+    let mut result: WalletResponse = WalletResponse::new();
+    result.outpoints = tables::OUTPOINTS_FOR_ADDRESS
         .select(address)
         .get_list()
         .into_iter()
         .map(|v| -> Result<OutPoint> {
             let mut cursor = Cursor::new(v.as_ref().clone());
             Ok(consensus_decode::<bitcoin::blockdata::transaction::OutPoint>(&mut cursor)?)
+        }).collect::<Result<Vec<OutPoint>>>()?.into_iter()
+        .filter_map(|v| -> Option<Result<OutpointResponse>> {
+          let outpoint_bytes = match outpoint_to_bytes(&v) {
+            Ok(v) => v,
+            Err(e) => { return Some(Err(e)); }
+          };
+          let _address = tables::OUTPOINT_SPENDABLE_BY.select(&outpoint_bytes).get();
+          if address.len() == _address.len() {
+            Some(outpoint_to_outpoint_response(&v))
+          } else {
+            None
+          }
         })
-        .collect::<Result<Vec<OutPoint>>>()?;
-    let mut result: WalletResponse = WalletResponse::new();
-    for outpoint in outpoints {
-        let outpoint_bytes = outpoint_to_bytes(&outpoint)?;
-        let _address = tables::OUTPOINT_SPENDABLE_BY.select(&outpoint_bytes).get();
-        if address.len() == _address.len() {
-            let balance_sheet: BalanceSheet = BalanceSheet::load(
-                &atomic.derive(&tables::RUNES.OUTPOINT_TO_RUNES.select(&outpoint_bytes)),
-            );
-            let decoded_output: Output = Output::parse_from_bytes(
-                &tables::OUTPOINT_TO_OUTPUT
-                    .select(&outpoint_bytes)
-                    .get()
-                    .as_ref(),
-            )?;
-
-            let final_outpoint: OutpointResponse = OutpointResponse {
-                balances: MessageField::some(balance_sheet_to_proto(&BalanceSheet::default())),
-                outpoint: MessageField::some(core_outpoint_to_proto(&outpoint)),
-                output: MessageField::some(decoded_output),
-                height: 0,
-                txindex: 0,
-                special_fields: SpecialFields::new(),
-            };
-            result.outpoints.push(final_outpoint);
-        }
-    }
+        .collect::<Result<Vec<OutpointResponse>>>()?;
     Ok(result)
 }
