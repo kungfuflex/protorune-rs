@@ -29,7 +29,7 @@ pub fn runes_by_address(address: Vec<u8>) -> WalletResponse {
             let height: u32 = 0;
             let txindex: u32 = 0;
             let decoded_output: Output = Output::parse_from_bytes(
-                &tables::OUTPOINT_TO_OUTPUT.select(&*&outpoint).get()
+                &atomic.derive(&tables::OUTPOINT_TO_OUTPUT.select(&*&outpoint)).get()
             ).unwrap();
 
             let final_outpoint: OutpointResponse = OutpointResponse {
