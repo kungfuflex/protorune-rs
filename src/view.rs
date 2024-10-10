@@ -1,4 +1,5 @@
-use crate::balance_sheet::BalanceSheet;
+use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
+use std::collections::HashMap;
 use crate::proto::protorune::{
     BalanceSheet as ProtoBalanceSheet, BalanceSheetItem, Outpoint, OutpointResponse, Output, Rune,
     RuneId, WalletResponse,
@@ -12,6 +13,7 @@ use bitcoin::hashes::{sha256d, Hash};
 use bitcoin::OutPoint;
 use metashrew::index_pointer::{AtomicPointer, KeyValuePointer};
 use metashrew::utils::{consume_exact, consume_sized_int};
+use metashrew::byte_view::ByteView;
 use protobuf::{Message, MessageField, SpecialFields};
 use std::io::Cursor;
 
@@ -27,9 +29,19 @@ pub fn core_outpoint_to_proto(outpoint: &OutPoint) -> Outpoint {
     }
 }
 
-pub fn balance_sheet_to_proto(
-    balance_sheet: &crate::balance_sheet::BalanceSheet,
-) -> ProtoBalanceSheet {
+impl From<ProtoBalanceSheet> for BalanceSheet {
+  fn from(balance_sheet: ProtoBalanceSheet) -> BalanceSheet {
+    BalanceSheet {
+      balances: HashMap::<ProtoruneRuneId, u128>::from_iter(balance_sheet.entries.into_iter().map(|v| {
+        let id = ProtoruneRuneId::new(v.rune.runeId.height as u128, v.rune.runeId.txindex as u128);
+        (id, u128::from_bytes(v.balance))
+    }))
+    }
+  }
+}
+
+impl From<BalanceSheet> for ProtoBalanceSheet {
+  fn from(balance_sheet: BalanceSheet) -> ProtoBalanceSheet {
     ProtoBalanceSheet {
         entries: balance_sheet
             .balances
@@ -54,6 +66,7 @@ pub fn balance_sheet_to_proto(
             .collect::<Vec<BalanceSheetItem>>(),
         special_fields: SpecialFields::new(),
     }
+  }
 }
 
 pub fn outpoint_to_outpoint_response(outpoint: &OutPoint) -> Result<OutpointResponse> {
@@ -68,7 +81,7 @@ pub fn outpoint_to_outpoint_response(outpoint: &OutPoint) -> Result<OutpointResp
        .as_ref(),
     )?;
     Ok(OutpointResponse {
-      balances: MessageField::some(balance_sheet_to_proto(&BalanceSheet::default())),
+      balances: MessageField::some(BalanceSheet::default().into()),
       outpoint: MessageField::some(core_outpoint_to_proto(&outpoint)),
       output: MessageField::some(decoded_output),
       height: 0,
