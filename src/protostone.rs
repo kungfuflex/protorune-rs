@@ -79,12 +79,13 @@ impl Protostone {
         block: &Block,
         height: u64,
         runestone_output_index: u32,
+        vout: u32,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
         default_output: u32,
     ) -> Result<()> {
         if self.is_message() {
             let initial_sheet = balances_by_output
-                .get(&runestone_output_index)
+                .get(&vout)
                 .map(|v| v.clone())
                 .unwrap_or_else(|| BalanceSheet::default());
             atomic.checkpoint();
@@ -114,11 +115,11 @@ impl Protostone {
             let refund_pointer = self.refund.unwrap_or_else(|| default_output);
             match T::handle(&parcel) {
                 Ok(values) => {
-                    match values.reconcile(balances_by_output, runestone_output_index, pointer, refund_pointer) {
+                    match values.reconcile(balances_by_output, vout, pointer, refund_pointer) {
                       Ok(_) => { atomic.commit() },
                       Err(_) => {
-                        let sheet = balances_by_output.get(&runestone_output_index).map(|v| v.clone()).unwrap_or_else(|| BalanceSheet::default());
-                        balances_by_output.remove(&runestone_output_index);
+                        let sheet = balances_by_output.get(&vout).map(|v| v.clone()).unwrap_or_else(|| BalanceSheet::default());
+                        balances_by_output.remove(&vout);
                         if !balances_by_output.contains_key(&refund_pointer) {
                             balances_by_output.insert(refund_pointer, BalanceSheet::default());
                         sheet.pipe(balances_by_output.get_mut(&refund_pointer).unwrap());

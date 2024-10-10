@@ -531,7 +531,8 @@ impl Protorune {
             )?;
             protostones
                 .into_iter()
-                .map(|stone| {
+                .enumerate()
+                .map(|(i, stone)| {
                     if stone.edicts.is_some() {
                         Self::process_edicts(
                             tx,
@@ -563,6 +564,7 @@ impl Protorune {
                             block,
                             height,
                             runestone_output_index,
+                            tx.output.len() as u32 + 1 + i as u32,
                             &mut proto_balances_by_output,
                             unallocated_to
                         )?;
