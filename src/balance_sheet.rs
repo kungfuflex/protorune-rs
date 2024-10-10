@@ -4,6 +4,7 @@ use metashrew::{
     println,
     stdio::stdout,
 };
+use crate::rune_transfer::{RuneTransfer};
 use ordinals::RuneId;
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -17,7 +18,7 @@ pub struct ProtoruneRuneId {
 }
 
 pub trait RuneIdentifier {
-  fn to_pair(): (u128, u128);
+  fn to_pair(&self) -> (u128, u128);
 }
 
 impl ProtoruneRuneId {
@@ -27,21 +28,21 @@ impl ProtoruneRuneId {
 }
 
 impl RuneIdentifier for ProtoruneRuneId {
-  fn to_pair() -> (u128, u128) {
+  fn to_pair(&self) -> (u128, u128) {
     return (self.block, self.tx);
   }
 }
 
 impl RuneIdentifier for RuneId {
-  fn to_pair() -> (u128, u128) {
+  fn to_pair(&self) -> (u128, u128) {
     return (self.block as u128, self.tx as u128);
   }
 }
 
-impl<T: RuneIdentifier> From<T> for ProtoruneRuneId {
-    fn from(v: T) -> ProtoruneRuneId {
+impl From<RuneId> for ProtoruneRuneId {
+    fn from(v: RuneId) -> ProtoruneRuneId {
         let (block, tx) = v.to_pair();
-        ProtoruneRuneId::new(v.block as u128, v.tx as u128)
+        ProtoruneRuneId::new(block as u128, tx as u128)
     }
 }
 
@@ -51,10 +52,10 @@ impl fmt::Display for ProtoruneRuneId {
     }
 }
 
-impl<T: RuneIdentifier> From<T> for Vec<u8> {
-    fn from(rune_id: T) -> Self {
+impl From<ProtoruneRuneId> for Vec<u8> {
+    fn from(rune_id: ProtoruneRuneId) -> Self {
         let mut bytes = Vec::new();
-        let (block, tx) = rune_id.to_pair()l
+        let (block, tx) = rune_id.to_pair();
 
         bytes.extend(&block.to_le_bytes());
         bytes.extend(&tx.to_le_bytes());
@@ -62,7 +63,7 @@ impl<T: RuneIdentifier> From<T> for Vec<u8> {
     }
 }
 
-impl<T: RuneIdentifier> From<T> for Arc<Vec<u8>> {
+impl From<ProtoruneRuneId> for Arc<Vec<u8>> {
     fn from(rune_id: ProtoruneRuneId) -> Self {
         let bytes = rune_id.into();
         // Wrap the Vec in an Arc
@@ -85,8 +86,8 @@ impl From<Arc<Vec<u8>>> for ProtoruneRuneId {
 }
 
 #[derive(Clone, Default, Debug)]
-pub struct BalanceSheet<T: RuneIdentifier> {
-    pub balances: HashMap<T, u128>, // Using HashMap to map runes to their balances
+pub struct BalanceSheet {
+    pub balances: HashMap<ProtoruneRuneId, u128>, // Using HashMap to map runes to their balances
 }
 
 impl BalanceSheet {
@@ -96,17 +97,17 @@ impl BalanceSheet {
         }
     }
 
-    pub fn from_pairs(runes: Vec<RuneId>, balances: Vec<u128>) -> BalanceSheet {
+    pub fn from_pairs(runes: Vec<ProtoruneRuneId>, balances: Vec<u128>) -> BalanceSheet {
         let mut sheet = BalanceSheet::new();
         for i in 0..runes.len() {
-            sheet.set(runes[i], balances[i]);
+            sheet.set(&runes[i], balances[i]);
         }
         return sheet;
     }
 
     pub fn pipe(&self, sheet: &mut BalanceSheet) -> () {
         for (rune, balance) in &self.balances {
-            sheet.increase(*rune, *balance);
+            sheet.increase(rune, *balance);
         }
     }
     pub fn debit(&mut self, sheet: &BalanceSheet) -> Result<()> {
@@ -133,8 +134,8 @@ impl BalanceSheet {
         *self.balances.get(rune).unwrap_or(&0u128) // Return 0 if rune not found
     }
 
-    pub fn set(&mut self, rune: ProtoruneRuneId, value: u128) {
-        self.balances.insert(rune, value);
+    pub fn set(&mut self, rune: &ProtoruneRuneId, value: u128) {
+        self.balances.insert(rune.clone(), value);
     }
 
     pub fn increase(&mut self, rune: &ProtoruneRuneId, value: u128) {
@@ -155,11 +156,11 @@ impl BalanceSheet {
     pub fn merge(a: &BalanceSheet, b: &BalanceSheet) -> BalanceSheet {
         let mut merged = BalanceSheet::new();
         for (rune, balance) in &a.balances {
-            merged.set(rune.clone(), *balance);
+            merged.set(rune, *balance);
         }
         for (rune, balance) in &b.balances {
             let current_balance = merged.get(rune);
-            merged.set(rune.clone(), current_balance + *balance);
+            merged.set(rune, current_balance + *balance);
         }
         merged
     }
@@ -211,8 +212,16 @@ impl BalanceSheet {
         for i in 0..length {
             let rune = ProtoruneRuneId::from(runes_ptr.select_index(i).get());
             let balance = balances_ptr.select_index(i).get_value::<u128>();
-            result.set(rune, balance);
+            result.set(&rune, balance);
         }
         result
     }
+}
+
+impl From<Vec<RuneTransfer>> for BalanceSheet {
+  fn from(v: Vec<RuneTransfer>) -> BalanceSheet {
+    BalanceSheet {
+      balances: HashMap::<ProtoruneRuneId, u128>::from_iter(v.into_iter().map(|v| (v.id, v.value))) 
+    }
+  }
 }

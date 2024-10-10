@@ -110,6 +110,8 @@ impl Protostone {
                 runtime_balances: Box::new(BalanceSheet::default()),
                 sheets: Box::new(BalanceSheet::default()),
             };
+            let pointer = self.pointer.unwrap_or_else(|| default_output);
+            let refund_pointer = self.refund.unwrap_or_else(|| default_output);
             match T::handle(&parcel) {
                 Ok(values) => {
                     match values.reconcile(balances_by_output, runestone_output_index, pointer, refund_pointer) {
@@ -117,18 +119,18 @@ impl Protostone {
                       Err(_) => {
                         let sheet = balances_by_output.get(&runestone_output_index).map(|v| v.clone()).unwrap_or_else(|| BalanceSheet::default());
                         balances_by_output.remove(&runestone_output_index);
-                        if !balances_by_output.contains_key(refund_pointer) {
+                        if !balances_by_output.contains_key(&refund_pointer) {
                             balances_by_output.insert(refund_pointer, BalanceSheet::default());
-                        sheet.pipe(balances_by_output.get_mut(refund_pointer).unwrap());
+                        sheet.pipe(balances_by_output.get_mut(&refund_pointer).unwrap());
                         atomic.rollback()
                       }
                     }
+                  }
                 }
                 Err(_) => {
                     atomic.rollback();
                 }
             }
-        };
       }
       Ok(())
     }
