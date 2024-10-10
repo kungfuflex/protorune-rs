@@ -1,9 +1,14 @@
 use anyhow::{ anyhow, Result };
-use metashrew::{ index_pointer::{ IndexPointer, KeyValuePointer }, println, stdio::stdout };
+use bitcoin::consensus::Encodable;
+use metashrew::{
+    index_pointer::{ AtomicPointer, IndexPointer, KeyValuePointer },
+    println,
+    stdio::stdout,
+};
 use serde::{ Deserialize, Serialize };
-use crate::rune_transfer::{ RuneTransfer };
+use crate::{ proto, rune_transfer::RuneTransfer, tables, utils::consensus_encode };
 use ordinals::RuneId;
-use std::collections::HashMap;
+use std::{ collections::HashMap, sync::atomic };
 use std::fmt::Write;
 use std::sync::Arc;
 use std::{ fmt, u128 };
@@ -85,7 +90,7 @@ impl From<Arc<Vec<u8>>> for ProtoruneRuneId {
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct BalanceSheet {
-    pub balances: HashMap<ProtoruneRuneId, u128>, // Using HashMap to map runes to their balances
+    pub balances: HashMap<ProtoruneRuneId, u128>,
 }
 
 impl BalanceSheet {
@@ -223,4 +228,44 @@ impl From<Vec<RuneTransfer>> for BalanceSheet {
             ),
         }
     }
+}
+
+pub fn balance_sheet_to_protobuf(sheet: BalanceSheet) -> proto::protorune::BalanceSheet {
+    let atomic: AtomicPointer = AtomicPointer::default();
+    let mut balance_sheet = proto::protorune::BalanceSheet::new();
+
+    for (protorune_id, balance) in sheet.balances.iter() {
+        let name = atomic
+            .derive(
+                &tables::RUNES.RUNE_ID_TO_ETCHING.select(&consensus_encode(protorune_id).unwrap())
+            )
+            .get();
+        let spacers = atomic.derive(&tables::RUNES.SPACERS.select(&name));
+        let divisibility: u32 = atomic
+            .derive(&tables::RUNES.DIVISIBILITY.select(&name))
+            .get_value::<u8>()
+            .into();
+
+        let mut rune = proto::protorune::Rune::new();
+        let mut rune_id = proto::protorune::RuneId::new();
+
+        rune_id.height = protorune_id.block as u32;
+        rune_id.txindex = protorune_id.tx as u32;
+
+        rune.runeId = MessageField::some(rune_id);
+        rune.name = name.to_vec();
+
+        rune.divisibility = divisibility;
+        rune.symbol = atomic.derive(&tables::RUNES.SYMBOL.select(&name)).get_value::<u8>() as u32;
+        rune.spacers = atomic.derive(&tables::RUNES.SPACERS.select(&name)).get_value::<u32>();
+
+        balance_sheet.entries.push(rune);
+    }
+
+    let mut entry = proto::protorune::BalanceSheetItem::new();
+    entry.rune = MessageField::some(runes[i].clone());
+    entry.balance = balance.clone();
+    balance_sheet.entries.push(entry);
+
+    balance_sheet
 }
