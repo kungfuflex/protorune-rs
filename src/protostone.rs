@@ -116,24 +116,27 @@ impl Protostone {
             match T::handle(&parcel) {
                 Ok(values) => {
                     match values.reconcile(balances_by_output, vout, pointer, refund_pointer) {
-                      Ok(_) => { atomic.commit() },
-                      Err(_) => {
-                        let sheet = balances_by_output.get(&vout).map(|v| v.clone()).unwrap_or_else(|| BalanceSheet::default());
-                        balances_by_output.remove(&vout);
-                        if !balances_by_output.contains_key(&refund_pointer) {
-                            balances_by_output.insert(refund_pointer, BalanceSheet::default());
-                        sheet.pipe(balances_by_output.get_mut(&refund_pointer).unwrap());
-                        atomic.rollback()
-                      }
+                        Ok(_) => atomic.commit(),
+                        Err(_) => {
+                            let sheet = balances_by_output
+                                .get(&vout)
+                                .map(|v| v.clone())
+                                .unwrap_or_else(|| BalanceSheet::default());
+                            balances_by_output.remove(&vout);
+                            if !balances_by_output.contains_key(&refund_pointer) {
+                                balances_by_output.insert(refund_pointer, BalanceSheet::default());
+                                sheet.pipe(balances_by_output.get_mut(&refund_pointer).unwrap());
+                                atomic.rollback()
+                            }
+                        }
                     }
-                  }
                 }
                 Err(_) => {
                     atomic.rollback();
                 }
             }
-      }
-      Ok(())
+        }
+        Ok(())
     }
     pub fn from_bytes(num_outputs: u32, protocol_tag: u128, bytes: Vec<u8>) -> Result<Self> {
         let integers =

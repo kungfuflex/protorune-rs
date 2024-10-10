@@ -1,7 +1,10 @@
 use anyhow::Result;
-use metashrew::utils::{ is_empty, remaining_slice, consume_to_end };
+use bitcoin::consensus::{
+    deserialize,
+    encode::{Decodable, Encodable},
+};
+use metashrew::utils::{consume_to_end, is_empty, remaining_slice};
 use ordinals::varint;
-use bitcoin::consensus::{ deserialize, encode::{Encodable, Decodable } };
 use std::io::BufRead;
 use std::io::Cursor;
 pub fn consensus_encode<T: Encodable>(v: &T) -> Result<Vec<u8>> {
@@ -11,7 +14,7 @@ pub fn consensus_encode<T: Encodable>(v: &T) -> Result<Vec<u8>> {
 }
 
 pub fn consensus_decode<T: Decodable>(cursor: &mut std::io::Cursor<Vec<u8>>) -> Result<T> {
-  Ok(deserialize(&consume_to_end(cursor)?)?)
+    Ok(deserialize(&consume_to_end(cursor)?)?)
 }
 
 pub fn decode_varint_list(cursor: &mut std::io::Cursor<Vec<u8>>) -> Result<Vec<u128>> {

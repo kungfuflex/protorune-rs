@@ -1,13 +1,17 @@
-use anyhow::{ anyhow, Result };
-use metashrew::{ index_pointer::{ IndexPointer, KeyValuePointer }, println, stdio::stdout };
-use serde::{ Deserialize, Serialize };
-use crate::rune_transfer::{ RuneTransfer };
+use crate::rune_transfer::RuneTransfer;
+use anyhow::{anyhow, Result};
+use metashrew::{
+    index_pointer::{IndexPointer, KeyValuePointer},
+    println,
+    stdio::stdout,
+};
 use ordinals::RuneId;
+use protobuf::{Message, MessageField};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::sync::Arc;
-use std::{ fmt, u128 };
-use protobuf::{ Message, MessageField };
+use std::{fmt, u128};
 
 #[derive(Eq, PartialEq, Hash, Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub struct ProtoruneRuneId {
@@ -187,7 +191,7 @@ impl BalanceSheet {
         &self,
         rune: &ProtoruneRuneId,
         ptr: &T,
-        is_cenotaph: bool
+        is_cenotaph: bool,
     ) -> Result<()> {
         let runes_ptr = ptr.keyword("/runes");
         let balances_ptr = ptr.keyword("/balances");
@@ -219,7 +223,7 @@ impl From<Vec<RuneTransfer>> for BalanceSheet {
     fn from(v: Vec<RuneTransfer>) -> BalanceSheet {
         BalanceSheet {
             balances: HashMap::<ProtoruneRuneId, u128>::from_iter(
-                v.into_iter().map(|v| (v.id, v.value))
+                v.into_iter().map(|v| (v.id, v.value)),
             ),
         }
     }
