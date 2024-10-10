@@ -81,7 +81,7 @@ pub fn outpoint_to_outpoint_response(outpoint: &OutPoint) -> Result<OutpointResp
        .as_ref(),
     )?;
     Ok(OutpointResponse {
-      balances: MessageField::some(BalanceSheet::default().into()),
+      balances: MessageField::some(balance_sheet.into()),
       outpoint: MessageField::some(core_outpoint_to_proto(&outpoint)),
       output: MessageField::some(decoded_output),
       height: 0,

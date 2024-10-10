@@ -94,7 +94,7 @@ mod tests {
                 .into_bytes(),
         );
 
-        println!("{:?}", view_test);
+        //println!("{:?}", view_test);
         let mut outpoint_vec: Vec<String> = Vec::new();
         outpoint_vec
             .push("a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32:0".to_string());

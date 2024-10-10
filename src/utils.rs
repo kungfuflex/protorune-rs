@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bitcoin::consensus::{
-    deserialize,
+    deserialize_partial,
     encode::{Decodable, Encodable},
 };
 use metashrew::utils::{consume_to_end, is_empty, remaining_slice};
@@ -14,7 +14,10 @@ pub fn consensus_encode<T: Encodable>(v: &T) -> Result<Vec<u8>> {
 }
 
 pub fn consensus_decode<T: Decodable>(cursor: &mut std::io::Cursor<Vec<u8>>) -> Result<T> {
-    Ok(deserialize(&consume_to_end(cursor)?)?)
+    let slice = &cursor.get_ref()[(cursor.position() as usize)..(cursor.get_ref().len() as usize)];
+    let deserialized: (T, usize) = deserialize_partial(slice)?;
+    cursor.consume(deserialized.1);
+    Ok(deserialized.0)
 }
 
 pub fn decode_varint_list(cursor: &mut std::io::Cursor<Vec<u8>>) -> Result<Vec<u128>> {
