@@ -2,7 +2,7 @@ use crate::balance_sheet::BalanceSheet;
 use crate::message::MessageContext;
 use crate::utils::consensus_encode;
 use anyhow::{ anyhow, Ok, Result };
-use balance_sheet::ProtoruneRuneId;
+use balance_sheet::{ ProtoruneRuneId };
 use bitcoin::blockdata::block::Block;
 use bitcoin::hashes::Hash;
 use bitcoin::{ Address, OutPoint, ScriptBuf, Transaction, TxOut };
@@ -62,6 +62,7 @@ pub fn num_non_op_return_outputs(tx: &Transaction) -> usize {
 pub fn runesbyaddress() -> i32 {
     let address: Vec<u8> = input();
     let result: WalletResponse = view::runes_by_address(address);
+    println!("{:?}", result);
     return to_ptr(&mut to_arraybuffer_layout(Arc::new(result.write_to_bytes().unwrap()))) + 4;
 }
 
@@ -103,7 +104,7 @@ impl Protorune {
         }
         if let Some(mint) = runestone.mint {
             if !mint.to_string().is_empty() {
-                Self::index_mint(&mint, height, &mut balance_sheet)?;
+                Self::index_mint(&mint.into(), height, &mut balance_sheet)?;
             }
         }
         Self::process_edicts(
@@ -145,7 +146,7 @@ impl Protorune {
         balance_sheet: &mut BalanceSheet,
         edict_amount: u128,
         edict_output: u32,
-        rune_id: &RuneId
+        rune_id: &ProtoruneRuneId
     ) -> Result<()> {
         if !balances_by_output.contains_key(&edict_output) {
             balances_by_output.insert(edict_output, BalanceSheet::default());
@@ -159,8 +160,8 @@ impl Protorune {
         } else {
             std::cmp::min(edict_amount, balance_sheet.get(&(*rune_id).into()))
         };
-        balance_sheet.decrease((*rune_id).into(), amount);
-        sheet.increase((*rune_id).into(), amount);
+        balance_sheet.decrease(rune_id, amount);
+        sheet.increase(rune_id, amount);
         Ok(())
     }
     pub fn process_edict(
@@ -194,7 +195,7 @@ impl Protorune {
                                 balances,
                                 max / count + rem,
                                 i,
-                                &edict.id
+                                &edict.id.into()
                             )?;
                         }
                     }
@@ -211,7 +212,7 @@ impl Protorune {
                                 balances,
                                 amount,
                                 i,
-                                &edict.id
+                                &edict.id.into()
                             )?;
                         }
                     }
@@ -222,7 +223,7 @@ impl Protorune {
                     balances,
                     edict.amount,
                     edict.output,
-                    &edict.id
+                    &edict.id.into()
                 )?;
             }
             Ok(())
@@ -253,7 +254,11 @@ impl Protorune {
         }
         Ok(())
     }
-    pub fn index_mint(mint: &RuneId, height: u64, balance_sheet: &mut BalanceSheet) -> Result<()> {
+    pub fn index_mint(
+        mint: &ProtoruneRuneId,
+        height: u64,
+        balance_sheet: &mut BalanceSheet
+    ) -> Result<()> {
         let name = tables::RUNES.RUNE_ID_TO_ETCHING.select(&mint.to_string().into_bytes()).get();
         let remaining: u128 = tables::RUNES.MINTS_REMAINING.select(&name).get_value();
         let amount: u128 = tables::RUNES.AMOUNT.select(&name).get_value();
@@ -272,10 +277,10 @@ impl Protorune {
             {
                 tables::RUNES.MINTS_REMAINING.select(&name).set_value(remaining.sub(1));
                 balance_sheet.increase(
-                    ProtoruneRuneId {
+                    &(ProtoruneRuneId {
                         block: u128::from(mint.block),
                         tx: u128::from(mint.tx),
-                    },
+                    }),
                     amount
                 );
             }
@@ -390,7 +395,9 @@ impl Protorune {
     // }
 
     pub fn build_rune_id(height: u64, tx: u32) -> Arc<Vec<u8>> {
-        let rune_id = RuneId::new(height, tx).unwrap().to_string().into_bytes();
+        let rune_id = ProtoruneRuneId::new(height as u128, tx as u128)
+            .to_string()
+            .into_bytes();
         return Arc::new(rune_id);
     }
 
@@ -424,6 +431,7 @@ impl Protorune {
     pub fn index_spendables(txdata: &Vec<Transaction>) -> Result<()> {
         for (txindex, transaction) in txdata.iter().enumerate() {
             let tx_id = transaction.txid();
+
             for (index, output) in transaction.output.iter().enumerate() {
                 let outpoint = OutPoint {
                     txid: tx_id.clone(),
@@ -555,13 +563,13 @@ impl Protorune {
                             block,
                             height,
                             runestone_output_index,
-                            &proto_balances_by_output,
+                            &mut proto_balances_by_output,
                             unallocated_to
                         )?;
                     }
                     Ok(())
                 })
-                .collect::<Result<()>>();
+                .collect::<Result<()>>()?;
         }
         Ok(())
     }
@@ -588,7 +596,7 @@ impl Protorune {
 
 //     const name = nameToArrayBuffer("UNCOMMONGOODS");
 //     const spacers = 128;
-//     const runeId = new RuneId(1, 0).toBytes();
+//     const runeId = new ProtoruneRuneId(1, 0).toBytes();
 //     ETCHING_TO_RUNE_ID.select(name).set(runeId);
 //     RUNE_ID_TO_ETCHING.select(runeId).set(name);
 //     RUNE_ID_TO_HEIGHT.select(runeId).setValue<u32>(GENESIS);

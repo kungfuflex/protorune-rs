@@ -107,8 +107,8 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
                         if to_apply == 0 {
                             continue;
                         }
-                        runestone_balance_sheet.decrease(rune.clone().into(), to_apply);
-                        burn_sheets[i].increase(rune.into(), to_apply);
+                        runestone_balance_sheet.decrease(&rune.clone().into(), to_apply);
+                        burn_sheets[i].increase(&rune.into(), to_apply);
                     }
                 }
             }
@@ -127,8 +127,8 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
                     continue;
                 };
                 burn_cycles.next(&(rune.into()))?;
-                runestone_balance_sheet.decrease(rune.clone().into(), to_apply);
-                burn_sheets[cycle as usize].increase(rune.into(), to_apply);
+                runestone_balance_sheet.decrease(&rune.clone().into(), to_apply);
+                burn_sheets[cycle as usize].increase(&rune.into(), to_apply);
             }
         }
         if runestone_output_index == default_output {
@@ -139,8 +139,8 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
                     continue;
                 };
                 burn_cycles.next(rune)?;
-                runestone_balance_sheet.decrease(rune.clone(), to_apply);
-                burn_sheets[cycle as usize].increase(rune.clone(), to_apply);
+                runestone_balance_sheet.decrease(rune, to_apply);
+                burn_sheets[cycle as usize].increase(rune, to_apply);
             }
         }
 

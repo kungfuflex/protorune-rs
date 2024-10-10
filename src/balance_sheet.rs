@@ -1,19 +1,22 @@
-use anyhow::{anyhow, Result};
-use metashrew::{
-    index_pointer::{IndexPointer, KeyValuePointer},
-    println,
-    stdio::stdout,
-};
+use anyhow::{ anyhow, Result };
+use metashrew::{ index_pointer::{ IndexPointer, KeyValuePointer }, println, stdio::stdout };
+use serde::{ Deserialize, Serialize };
+use crate::rune_transfer::{ RuneTransfer };
 use ordinals::RuneId;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::sync::Arc;
-use std::{fmt, u128};
+use std::{ fmt, u128 };
+use protobuf::{ Message, MessageField };
 
-#[derive(Eq, PartialEq, Hash, Clone, Copy, Debug, Default)]
+#[derive(Eq, PartialEq, Hash, Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub struct ProtoruneRuneId {
     pub block: u128,
     pub tx: u128,
+}
+
+pub trait RuneIdentifier {
+    fn to_pair(&self) -> (u128, u128);
 }
 
 impl ProtoruneRuneId {
@@ -22,9 +25,22 @@ impl ProtoruneRuneId {
     }
 }
 
+impl RuneIdentifier for ProtoruneRuneId {
+    fn to_pair(&self) -> (u128, u128) {
+        return (self.block, self.tx);
+    }
+}
+
+impl RuneIdentifier for RuneId {
+    fn to_pair(&self) -> (u128, u128) {
+        return (self.block as u128, self.tx as u128);
+    }
+}
+
 impl From<RuneId> for ProtoruneRuneId {
     fn from(v: RuneId) -> ProtoruneRuneId {
-        ProtoruneRuneId::new(v.block as u128, v.tx as u128)
+        let (block, tx) = v.to_pair();
+        ProtoruneRuneId::new(block as u128, tx as u128)
     }
 }
 
@@ -37,9 +53,10 @@ impl fmt::Display for ProtoruneRuneId {
 impl From<ProtoruneRuneId> for Vec<u8> {
     fn from(rune_id: ProtoruneRuneId) -> Self {
         let mut bytes = Vec::new();
+        let (block, tx) = rune_id.to_pair();
 
-        bytes.extend(&rune_id.block.to_le_bytes());
-        bytes.extend(&rune_id.tx.to_le_bytes());
+        bytes.extend(&block.to_le_bytes());
+        bytes.extend(&tx.to_le_bytes());
         bytes
     }
 }
@@ -66,7 +83,7 @@ impl From<Arc<Vec<u8>>> for ProtoruneRuneId {
     }
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct BalanceSheet {
     pub balances: HashMap<ProtoruneRuneId, u128>, // Using HashMap to map runes to their balances
 }
@@ -81,15 +98,24 @@ impl BalanceSheet {
     pub fn from_pairs(runes: Vec<ProtoruneRuneId>, balances: Vec<u128>) -> BalanceSheet {
         let mut sheet = BalanceSheet::new();
         for i in 0..runes.len() {
-            sheet.set(runes[i], balances[i]);
+            sheet.set(&runes[i], balances[i]);
         }
         return sheet;
     }
 
     pub fn pipe(&self, sheet: &mut BalanceSheet) -> () {
         for (rune, balance) in &self.balances {
-            sheet.increase(*rune, *balance);
+            sheet.increase(rune, *balance);
         }
+    }
+    pub fn debit(&mut self, sheet: &BalanceSheet) -> Result<()> {
+        for (rune, balance) in &sheet.balances {
+            if sheet.get(&rune) > self.get(&rune) {
+                return Err(anyhow!("balance underflow"));
+            }
+            self.decrease(rune, *balance);
+        }
+        Ok(())
     }
 
     pub fn inspect(&self) -> String {
@@ -105,17 +131,17 @@ impl BalanceSheet {
         *self.balances.get(rune).unwrap_or(&0u128) // Return 0 if rune not found
     }
 
-    pub fn set(&mut self, rune: ProtoruneRuneId, value: u128) {
-        self.balances.insert(rune, value);
+    pub fn set(&mut self, rune: &ProtoruneRuneId, value: u128) {
+        self.balances.insert(rune.clone(), value);
     }
 
-    pub fn increase(&mut self, rune: ProtoruneRuneId, value: u128) {
-        let current_balance = self.get(&rune);
+    pub fn increase(&mut self, rune: &ProtoruneRuneId, value: u128) {
+        let current_balance = self.get(rune);
         self.set(rune, current_balance + value);
     }
 
-    pub fn decrease(&mut self, rune: ProtoruneRuneId, value: u128) -> bool {
-        let current_balance = self.get(&rune);
+    pub fn decrease(&mut self, rune: &ProtoruneRuneId, value: u128) -> bool {
+        let current_balance = self.get(rune);
         if current_balance < value {
             false
         } else {
@@ -127,11 +153,11 @@ impl BalanceSheet {
     pub fn merge(a: &BalanceSheet, b: &BalanceSheet) -> BalanceSheet {
         let mut merged = BalanceSheet::new();
         for (rune, balance) in &a.balances {
-            merged.set(rune.clone(), *balance);
+            merged.set(rune, *balance);
         }
         for (rune, balance) in &b.balances {
             let current_balance = merged.get(rune);
-            merged.set(rune.clone(), current_balance + *balance);
+            merged.set(rune, current_balance + *balance);
         }
         merged
     }
@@ -161,7 +187,7 @@ impl BalanceSheet {
         &self,
         rune: &ProtoruneRuneId,
         ptr: &T,
-        is_cenotaph: bool,
+        is_cenotaph: bool
     ) -> Result<()> {
         let runes_ptr = ptr.keyword("/runes");
         let balances_ptr = ptr.keyword("/balances");
@@ -183,8 +209,18 @@ impl BalanceSheet {
         for i in 0..length {
             let rune = ProtoruneRuneId::from(runes_ptr.select_index(i).get());
             let balance = balances_ptr.select_index(i).get_value::<u128>();
-            result.set(rune, balance);
+            result.set(&rune, balance);
         }
         result
+    }
+}
+
+impl From<Vec<RuneTransfer>> for BalanceSheet {
+    fn from(v: Vec<RuneTransfer>) -> BalanceSheet {
+        BalanceSheet {
+            balances: HashMap::<ProtoruneRuneId, u128>::from_iter(
+                v.into_iter().map(|v| (v.id, v.value))
+            ),
+        }
     }
 }
