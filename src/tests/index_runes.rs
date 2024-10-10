@@ -40,6 +40,83 @@ mod tests {
         }
     }
 
+    struct TestMessageContext(());
+
+    impl MessageContext for TestMessageContext {
+      fn protocol_tag() -> u128 {
+        1
+      }
+      fn handle(parcel: &MessageContextParcel) -> Result<(Vec<RuneTransfer>, BalanceSheet> {
+        let mut new_runtime_balances = parcel.runtime_balances.clone();
+        parcel.runes.into().pipe(&mut new_runtime_balances);
+        Ok((vec![], new_runtime_balances))
+      }
+    }
+
+    #[wasm_bindgen_test]
+    fn protomessage_test() {
+      clear();
+      let test_block = helpers::create_block_with_coinbase_tx(840000);
+      let previous_output = OutPoint {
+        txid: bitcoin::Txid::from_str(
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .unwrap(),
+        vout: 0,
+      };
+      let input_script = ScriptBuf::new();
+
+    // Create a transaction input
+      let txin = TxIn {
+          previous_output,
+          script_sig: input_script,
+          sequence: Sequence::MAX,
+          witness: Witness::new(),
+      };
+
+      let address: Address<NetworkChecked> = get_address(&config.address1);
+
+      let script_pubkey = address.script_pubkey();
+
+      // tx vout 0 will hold all 1000 of the runes
+      let txout = TxOut {
+          value: Amount::from_sat(100_000_000).to_sat(),
+          script_pubkey,
+      };
+
+      let runestone: ScriptBuf = (Runestone {
+        etching: Some(Etching {
+            divisibility: Some(2),
+            premine: Some(1000),
+            rune: Some(Rune::from_str(&config.rune_name).unwrap()),
+            spacers: Some(0),
+            symbol: Some(char::from_str(&config.rune_symbol).unwrap()),
+            turbo: true,
+            terms: None,
+        }),
+        pointer: Some(1),
+        edicts: Vec::new(),
+        mint: None,
+        proto: Some(vec![Protostone {
+          burn: Some([3])
+        }, Protostone {
+          message: Some(vec![])
+        }]),
+      })
+      .encipher();
+
+      let op_return = TxOut {
+        value: Amount::from_sat(0).to_sat(),
+        script_pubkey: runestone,
+      };
+
+      Transaction {
+        version: 1,
+        lock_time: bitcoin::absolute::LockTime::ZERO,
+        input: vec![txin],
+        output: vec![txout, op_return],
+      }
+    }
     #[wasm_bindgen_test]
     fn height_blockhash() {
         clear();

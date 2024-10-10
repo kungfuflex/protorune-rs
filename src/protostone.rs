@@ -108,7 +108,7 @@ impl Protostone {
                     .flatten()
                     .collect::<Vec<u8>>(),
                 txindex,
-                runtime_balances: Box::new(BalanceSheet::default()),
+                runtime_balances: Box::new(balances_by_output.get(&u32::MAX)?.clone()),
                 sheets: Box::new(BalanceSheet::default()),
             };
             let pointer = self.pointer.unwrap_or_else(|| default_output);
