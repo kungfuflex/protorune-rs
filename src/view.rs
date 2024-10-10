@@ -84,6 +84,13 @@ pub fn outpoint_to_outpoint_response(outpoint: &OutPoint) -> Result<OutpointResp
     let balance_sheet: BalanceSheet = BalanceSheet::load(
         &tables::RUNES.OUTPOINT_TO_RUNES.select(&outpoint_bytes)
     );
+    let mut height: u128 = 0;
+    let mut txindex: u128 = 0;
+
+    if let Some((rune_id, _)) = balance_sheet.clone().balances.iter().next() {
+        height = rune_id.block;
+        txindex = rune_id.tx;
+    }
     let decoded_output: Output = Output::parse_from_bytes(
         &tables::OUTPOINT_TO_OUTPUT.select(&outpoint_bytes).get().as_ref()
     )?;
@@ -91,8 +98,8 @@ pub fn outpoint_to_outpoint_response(outpoint: &OutPoint) -> Result<OutpointResp
         balances: MessageField::some(balance_sheet.into()),
         outpoint: MessageField::some(core_outpoint_to_proto(&outpoint)),
         output: MessageField::some(decoded_output),
-        height: 0,
-        txindex: 0,
+        height: height as u32,
+        txindex: txindex as u32,
         special_fields: SpecialFields::new(),
     })
 }

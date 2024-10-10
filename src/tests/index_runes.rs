@@ -121,15 +121,15 @@ mod tests {
     #[wasm_bindgen_test]
     fn runes_by_address_test() {
         clear();
-        let (test_block, config) = helpers::create_block_with_rune_tx();
+        let (test_block, _) = helpers::create_block_with_rune_tx();
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
         let address = "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".as_bytes().to_vec();
         let test_val = view::runes_by_address(&address).unwrap();
-        let balances: Vec<crate::proto::protorune::BalanceSheetItem> = test_val
-            .clone()
-            .balances.entries.clone();
-        println!("{:?}", balances);
-        //assert_eq!(list_str, outpoint_hex);
+        let runes: Vec<crate::proto::protorune::OutpointResponse> = test_val.clone().outpoints;
+        println!("{:?}", runes[0].balances);
+        assert_eq!(runes[0].height, 840001);
+        assert_eq!(runes[0].txindex, 0);
+        //assert_eq!(runes[0].balances, 840001);
     }
 
     #[wasm_bindgen_test]
