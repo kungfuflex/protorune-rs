@@ -1,9 +1,9 @@
 use crate::{
     balance_sheet::BalanceSheet,
     byte_utils::ByteUtils,
-    incoming_rune::IncomingRune,
     message::{MessageContext, MessageContextParcel},
     protoburn::{Protoburn, Protoburns},
+    rune_transfer::{OutgoingRunes, RuneTransfer},
     tables::RuneTable,
 };
 use anyhow::{anyhow, Result};
@@ -41,6 +41,7 @@ fn has_protocol(protocol_tag: &u128) -> Result<bool> {
     Ok(false)
 }
 
+#[derive(Clone)]
 pub struct Protostone {
     pub burn: Option<u128>,
     pub message: Vec<u128>,
@@ -70,6 +71,61 @@ impl Protostone {
         !self.message.is_empty()
     }
 
+    pub fn process_message<T: MessageContext>(
+        &self,
+        atomic: &mut AtomicPointer,
+        transaction: &Transaction,
+        txindex: u32,
+        block: &Block,
+        height: u64,
+        runestone_output_index: u32,
+        balances_by_output: &HashMap<u32, BalanceSheet>,
+        default_output: u32,
+    ) -> Result<()> {
+        if self.is_message() {
+            let initial_sheet = balances_by_output
+                .get(&runestone_output_index)
+                .map(|v| v.clone())
+                .unwrap_or_else(|| BalanceSheet::default());
+            atomic.checkpoint();
+            let parcel = MessageContextParcel {
+                atomic: atomic.derive(&IndexPointer::default()),
+                runes: RuneTransfer::from_balance_sheet(
+                    initial_sheet.clone(),
+                    self.protocol_tag,
+                    &mut atomic.derive(&IndexPointer::default()),
+                ),
+                transaction: transaction.clone(),
+                block: block.clone(),
+                height,
+                pointer: self.pointer.unwrap_or_else(|| default_output),
+                refund_pointer: self.pointer.unwrap_or_else(|| default_output),
+                calldata: self
+                    .message
+                    .iter()
+                    .map(|v| v.to_be_bytes())
+                    .flatten()
+                    .collect::<Vec<u8>>(),
+                txindex,
+                runtime_balances: Box::new(BalanceSheet::default()),
+                sheets: Box::new(BalanceSheet::default()),
+            };
+            match T::handle(&parcel) {
+                Ok(values) => {
+                    let balances_by_output = values.reconcile(
+                        initial_sheet,
+                        self.pointer.ok_or(anyhow!("no pointer"))?,
+                        self.refund.ok_or(anyhow!("no refund pointer"))?,
+                    );
+                    atomic.commit();
+                }
+                Err(_) => {
+                    atomic.rollback();
+                }
+            }
+        }
+        Ok(())
+    }
     pub fn from_bytes(num_outputs: u32, protocol_tag: u128, bytes: Vec<u8>) -> Result<Self> {
         let integers =
             Runestone::integers(&bytes.as_slice()).map_err(|e| anyhow!(e.to_string()))?;
@@ -211,19 +267,6 @@ pub trait Protostones {
         default_output: u32,
         txid: Txid,
     ) -> Result<()>;
-    fn process_messages<T: MessageContext>(
-        &self,
-        atomic: &mut AtomicPointer,
-        transaction: &Transaction,
-        txindex: u32,
-        block: &Block,
-        height: u64,
-        runestone: &Runestone,
-        runestone_output_index: u32,
-        balances_by_output: &HashMap<u32, BalanceSheet>,
-        default_output: u32,
-        txid: Txid,
-    ) -> Result<()>;
 }
 
 impl Protostones for Vec<Protostone> {
@@ -254,66 +297,6 @@ impl Protostones for Vec<Protostone> {
             default_output,
             txid,
         )?;
-        Ok(())
-    }
-    fn process_messages<T: MessageContext>(
-        &self,
-        atomic: &mut AtomicPointer,
-        transaction: &Transaction,
-        txindex: u32,
-        block: &Block,
-        height: u64,
-        runestone: &Runestone,
-        runestone_output_index: u32,
-        balances_by_output: &HashMap<u32, BalanceSheet>,
-        default_output: u32,
-        txid: Txid,
-    ) -> Result<()> {
-        for item in self {
-            if item.is_message() {
-                atomic.checkpoint();
-                if T::handle(Box::new(MessageContextParcel {
-                    atomic: atomic.derive(&IndexPointer::default()),
-                    runes: IncomingRune::from_balance_sheet(
-                        balances_by_output
-                            .get(&runestone_output_index)
-                            .map(|v| v.clone())
-                            .unwrap_or_else(|| BalanceSheet::default())
-                            .clone(),
-                        item.protocol_tag,
-                        &mut atomic.clone(),
-                    ),
-                    transaction: transaction.clone(),
-                    block: block.clone(),
-                    height,
-                    outpoint: OutPoint::null(),
-                    pointer: item.pointer.unwrap_or_else(|| default_output),
-                    refund_pointer: item.pointer.unwrap_or_else(|| default_output),
-                    calldata: item
-                        .message
-                        .iter()
-                        .map(|v| v.to_be_bytes())
-                        .flatten()
-                        .collect::<Vec<u8>>(),
-                    txid: txid.clone(),
-                    base_sheet: Box::new(
-                        balances_by_output
-                            .get(&runestone_output_index)
-                            .map(|v| v.clone())
-                            .unwrap_or_else(|| BalanceSheet::default())
-                            .clone(),
-                    ),
-                    sheets: Box::new(balances_by_output.clone()),
-                    txindex,
-                    table: Box::new(RuneTable::for_protocol(item.protocol_tag)),
-                    runtime_balances: Box::new(BalanceSheet::default()),
-                })) {
-                    atomic.commit();
-                } else {
-                    atomic.rollback();
-                }
-            }
-        }
         Ok(())
     }
 }

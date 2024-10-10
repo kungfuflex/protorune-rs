@@ -11,7 +11,8 @@ use metashrew::index_pointer::{ AtomicPointer, KeyValuePointer };
 use metashrew::{ flush, input, println, stdout };
 use ordinals::{ Artifact, Runestone };
 use ordinals::{ Edict, Etching, RuneId };
-use proto::protorune::WalletResponse;
+use proto::protorune::{ WalletResponse, Output };
+use protobuf::{ Message, SpecialFields };
 use protostone::{ add_to_indexable_protocols, initialized_protocol_index, Protostone, Protostones };
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -22,10 +23,10 @@ use std::sync::Arc;
 pub mod balance_sheet;
 pub mod byte_utils;
 pub mod constants;
-pub mod incoming_rune;
 pub mod message;
 pub mod protoburn;
 pub mod protostone;
+pub mod rune_transfer;
 pub mod tables;
 pub mod proto;
 #[cfg(test)]
@@ -61,7 +62,7 @@ pub fn num_non_op_return_outputs(tx: &Transaction) -> usize {
 pub fn runesbyaddress() -> i32 {
     let address: Vec<u8> = input();
     let result: WalletResponse = view::runes_by_address(address);
-    return to_ptr(&mut to_arraybuffer_layout(Arc::new(result.write_to_bytes())) + 4);
+    return to_ptr(&mut to_arraybuffer_layout(Arc::new(result.write_to_bytes().unwrap()))) + 4;
 }
 
 impl Protorune {
@@ -80,7 +81,7 @@ impl Protorune {
                 Ok(
                     BalanceSheet::load(
                         &mut atomic.derive(
-                            &tables::OUTPOINT_TO_RUNES.select(
+                            &tables::RUNES.OUTPOINT_TO_RUNES.select(
                                 &consensus_encode(&input.previous_output)?
                             )
                         )
@@ -121,7 +122,7 @@ impl Protorune {
             let outpoint = OutPoint::new(tx.txid(), vout);
             sheet.save(
                 &mut atomic.derive(
-                    &tables::OUTPOINT_TO_RUNES.select(&consensus_encode(&outpoint)?)
+                    &tables::RUNES.OUTPOINT_TO_RUNES.select(&consensus_encode(&outpoint)?)
                 ),
                 false
             );
@@ -452,10 +453,32 @@ impl Protorune {
         Ok(())
     }
     pub fn index_outpoints(block: &Block, height: u64) -> Result<()> {
+        let atomic = AtomicPointer::default();
         for tx in &block.txdata {
-            let ptr = tables::RUNES.OUTPOINT_TO_HEIGHT.select(&tx.txid().as_byte_array().to_vec());
+            let ptr = atomic.derive(
+                &tables::RUNES.OUTPOINT_TO_HEIGHT.select(&tx.txid().as_byte_array().to_vec())
+            );
             for i in 0..tx.output.len() {
                 ptr.select_value(i as u32).set_value(height);
+                atomic
+                    .derive(
+                        &tables::OUTPOINT_TO_OUTPUT.select(
+                            &consensus_encode(
+                                &(OutPoint { txid: tx.txid(), vout: i as u32 })
+                            ).unwrap()
+                        )
+                    )
+                    .set(
+                        Arc::new(
+                            (Output {
+                                script: tx.output[i].clone().script_pubkey.into_bytes(),
+                                value: tx.output[i].clone().value,
+                                special_fields: SpecialFields::new(),
+                            })
+                                .write_to_bytes()
+                                .unwrap()
+                        )
+                    );
             }
         }
         Ok(())
@@ -474,6 +497,23 @@ impl Protorune {
     ) -> Result<()> {
         let protostones = Protostone::from_runestone(tx, runestone)?;
         if protostones.len() != 0 {
+            let mut proto_balances_by_output = HashMap::<u32, BalanceSheet>::new();
+            let table = tables::RuneTable::for_protocol(T::protocol_tag());
+            let sheets: Vec<BalanceSheet> = tx.input
+                .iter()
+                .map(|input| {
+                    Ok(
+                        BalanceSheet::load(
+                            &mut atomic.derive(
+                                &table.OUTPOINT_TO_RUNES.select(
+                                    &consensus_encode(&input.previous_output)?
+                                )
+                            )
+                        )
+                    )
+                })
+                .collect::<Result<Vec<BalanceSheet>>>()?;
+            let mut balance_sheet = BalanceSheet::concat(sheets);
             protostones.process_burns(
                 runestone,
                 runestone_output_index,
@@ -481,18 +521,47 @@ impl Protorune {
                 unallocated_to,
                 tx.txid()
             )?;
-            protostones.process_messages::<T>(
-                atomic,
-                tx,
-                txindex,
-                block,
-                height,
-                runestone,
-                runestone_output_index,
-                balances_by_output,
-                unallocated_to,
-                tx.txid()
-            )?;
+            protostones
+                .into_iter()
+                .map(|stone| {
+                    if stone.edicts.is_some() {
+                        Self::process_edicts(
+                            tx,
+                            &stone.edicts.clone().ok_or(anyhow!("no edicts"))?,
+                            &mut proto_balances_by_output,
+                            &mut balance_sheet,
+                            &tx.output
+                        )?;
+                        Self::handle_leftover_runes(
+                            &mut balance_sheet,
+                            &mut proto_balances_by_output.clone(),
+                            unallocated_to
+                        )?;
+                        for (vout, sheet) in balances_by_output.clone() {
+                            let outpoint = OutPoint::new(tx.txid(), vout);
+                            sheet.save(
+                                &mut atomic.derive(
+                                    &table.OUTPOINT_TO_RUNES.select(&consensus_encode(&outpoint)?)
+                                ),
+                                false
+                            );
+                        }
+                    }
+                    if stone.is_message() {
+                        stone.process_message::<T>(
+                            atomic,
+                            tx,
+                            txindex,
+                            block,
+                            height,
+                            runestone_output_index,
+                            &proto_balances_by_output,
+                            unallocated_to
+                        )?;
+                    }
+                    Ok(())
+                })
+                .collect::<Result<()>>();
         }
         Ok(())
     }
