@@ -1,14 +1,14 @@
 use anyhow::Error;
 use bitcoin::address::NetworkChecked;
-use bitcoin::blockdata::block::{Block, Header, Version};
+use bitcoin::blockdata::block::{ Block, Header, Version };
 use bitcoin::blockdata::script::ScriptBuf;
-use bitcoin::blockdata::transaction::{Transaction, TxIn, TxOut};
+use bitcoin::blockdata::transaction::{ Transaction, TxIn, TxOut };
 use bitcoin::hashes::Hash;
 use bitcoin::string::FromHexStr;
-use bitcoin::{Address, Amount, BlockHash, OutPoint, Sequence, Witness};
-use byteorder::{ByteOrder, LittleEndian};
+use bitcoin::{ Address, Amount, BlockHash, OutPoint, Sequence, Witness };
+use byteorder::{ ByteOrder, LittleEndian };
 use core::str::FromStr;
-use ordinals::{Edict, Etching, Rune, RuneId, Runestone};
+use ordinals::{ Edict, Etching, Rune, RuneId, Runestone };
 use std::fmt::Write;
 use std::sync::Arc;
 
@@ -76,10 +76,9 @@ pub fn serialize_block(block: &Block) -> [u8; 32] {
 
 pub fn create_test_transaction() -> Transaction {
     let previous_output = OutPoint {
-        txid: bitcoin::Txid::from_str(
-            "0000000000000000000000000000000000000000000000000000000000000000",
-        )
-        .unwrap(),
+        txid: bitcoin::Txid
+            ::from_str("0000000000000000000000000000000000000000000000000000000000000000")
+            .unwrap(),
         vout: 0,
     };
     let input_script = ScriptBuf::new();
@@ -113,7 +112,7 @@ pub fn create_test_transaction() -> Transaction {
         output: vec![txout],
     }
 }
-
+#[derive(Debug)]
 pub struct RunesTestingConfig {
     pub address1: String,
     pub address2: String,
@@ -131,7 +130,7 @@ impl RunesTestingConfig {
         rune_name: &str,
         rune_symbol: &str,
         rune_etch_height: u64,
-        rune_etch_vout: u32,
+        rune_etch_vout: u32
     ) -> RunesTestingConfig {
         RunesTestingConfig {
             address1: String::from(address1),
@@ -160,20 +159,16 @@ impl RunesTestingConfig {
 }
 
 pub fn get_address(address: &str) -> Address<NetworkChecked> {
-    Address::from_str(address)
-        .unwrap()
-        .require_network(bitcoin::Network::Bitcoin)
-        .unwrap()
+    Address::from_str(address).unwrap().require_network(bitcoin::Network::Bitcoin).unwrap()
 }
 
 /// Create a rune etching, transferring all runes to vout 0 in the tx
 /// Mocks a dummy outpoint for the previous outpoint
 pub fn create_rune_transaction(config: &RunesTestingConfig) -> Transaction {
     let previous_output = OutPoint {
-        txid: bitcoin::Txid::from_str(
-            "0000000000000000000000000000000000000000000000000000000000000000",
-        )
-        .unwrap(),
+        txid: bitcoin::Txid
+            ::from_str("0000000000000000000000000000000000000000000000000000000000000000")
+            .unwrap(),
         vout: 0,
     };
     let input_script = ScriptBuf::new();
@@ -209,9 +204,8 @@ pub fn create_rune_transaction(config: &RunesTestingConfig) -> Transaction {
         pointer: Some(0),
         edicts: Vec::new(),
         mint: None,
-        proto: None,
-    })
-    .encipher();
+        protocol: None,
+    }).encipher();
 
     let op_return = TxOut {
         value: Amount::from_sat(0).to_sat(),
@@ -231,7 +225,7 @@ pub fn create_rune_transfer_transaction(
     previous_output: OutPoint,
     rune_id: RuneId,
     edict_amount: u128,
-    edict_output: u32,
+    edict_output: u32
 ) -> Transaction {
     let input_script = ScriptBuf::new();
 
@@ -272,9 +266,8 @@ pub fn create_rune_transfer_transaction(
         pointer: Some(1), // refund to vout 1
         edicts: vec![edict],
         mint: None,
-        proto: None,
-    })
-    .encipher();
+        protocol: None,
+    }).encipher();
 
     let op_return = TxOut {
         value: Amount::from_sat(0).to_sat(),
@@ -292,15 +285,14 @@ pub fn create_rune_transfer_transaction(
 pub fn create_block_with_txs(txdata: Vec<Transaction>) -> Block {
     // Define block header fields
     let version = Version::from_consensus(1);
-    let previous_blockhash =
-        BlockHash::from_str("00000000000000000005c3b409b4f17f9b3a97ed46d1a63d3f660d24168b2b3e")
-            .unwrap();
+    let previous_blockhash = BlockHash::from_str(
+        "00000000000000000005c3b409b4f17f9b3a97ed46d1a63d3f660d24168b2b3e"
+    ).unwrap();
 
     // let merkle_root_hash = bitcoin::merkle_tree::calculate_root(&[coinbase_tx.clone()]);
-    let merkle_root = bitcoin::hash_types::TxMerkleNode::from_str(
-        "4e07408562b4b5a9c0555f0671e0d2b6c5764c1d2a5e97c1d7f36f7c91e4c77a",
-    )
-    .unwrap();
+    let merkle_root = bitcoin::hash_types::TxMerkleNode
+        ::from_str("4e07408562b4b5a9c0555f0671e0d2b6c5764c1d2a5e97c1d7f36f7c91e4c77a")
+        .unwrap();
     let time = 1231006505; // Example timestamp (January 3, 2009)
     let bits = bitcoin::CompactTarget::from_hex_str("0x1234").unwrap(); // Example bits (difficulty)
     let nonce = 2083236893; // Example nonce
@@ -333,12 +325,9 @@ pub fn create_block_with_rune_tx() -> (Block, RunesTestingConfig) {
         "TESTER",
         "Z",
         840001,
-        0,
+        0
     );
-    return (
-        create_block_with_txs(vec![create_rune_transaction(&config)]),
-        config,
-    );
+    return (create_block_with_txs(vec![create_rune_transaction(&config)]), config);
 }
 
 pub fn create_block_with_coinbase_tx(height: u32) -> Block {
@@ -361,7 +350,7 @@ pub fn create_block_with_coinbase_tx(height: u32) -> Block {
 ///         - [2]: runestone with edict to transfer to vout0, default to vout1
 pub fn create_block_with_rune_transfer(
     edict_amount: u128,
-    edict_output: u32,
+    edict_output: u32
 ) -> (Block, RunesTestingConfig) {
     let mut config = RunesTestingConfig::new(
         "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu",
@@ -369,7 +358,7 @@ pub fn create_block_with_rune_transfer(
         "TESTER",
         "Z",
         840001,
-        0,
+        0
     );
     let tx0 = create_rune_transaction(&config);
     let outpoint_with_runes = OutPoint {
@@ -383,7 +372,7 @@ pub fn create_block_with_rune_transfer(
         outpoint_with_runes,
         rune_id,
         edict_amount,
-        edict_output,
+        edict_output
     );
     return (create_block_with_txs(vec![tx0, tx1]), config);
 }

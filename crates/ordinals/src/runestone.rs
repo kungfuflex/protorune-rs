@@ -11,7 +11,7 @@ pub struct Runestone {
     pub mint: Option<RuneId>,
     pub pointer: Option<u32>,
     // This proto field must be LEB encoded
-    pub proto: Option<Vec<u128>>,
+    pub protocol: Option<Vec<u128>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -125,14 +125,14 @@ impl Runestone {
             }));
         }
 
-        let proto = Tag::Protocol.take_all(&mut fields);
+        let protocol = Tag::Protocol.take_all(&mut fields);
 
         Some(Artifact::Runestone(Self {
             edicts,
             etching,
             mint,
             pointer,
-            proto,
+            protocol,
         }))
     }
 
@@ -176,7 +176,7 @@ impl Runestone {
         Tag::Pointer.encode_option(self.pointer, &mut payload);
 
         // encipher proto
-        if let Some(protostones) = &self.proto {
+        if let Some(protostones) = &self.protocol {
             // Tag::Protocol.encode(protostones, &mut payload);
             for proto_u128 in protostones {
                 Tag::Protocol.encode([*proto_u128], &mut payload);

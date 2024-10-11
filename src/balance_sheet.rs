@@ -27,6 +27,17 @@ impl ProtoruneRuneId {
     pub fn new(block: u128, tx: u128) -> Self {
         ProtoruneRuneId { block, tx }
     }
+    pub fn delta(self, next: ProtoruneRuneId) -> Option<(u128, u128)> {
+        let block = next.block.checked_sub(self.block)?;
+
+        let tx = if block == 0 {
+            next.tx.checked_sub(self.tx)?
+        } else {
+            next.tx
+        };
+
+        Some((block.into(), tx.into()))
+    }
 }
 
 impl RuneIdentifier for ProtoruneRuneId {
