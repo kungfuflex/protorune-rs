@@ -76,7 +76,7 @@ impl From<BalanceSheet> for ProtoBalanceSheet {
                         name: "name".as_bytes().to_vec(),
                         divisibility: 1,
                         spacers: 1,
-                        symbol: "Z".as_bytes().to_vec(),
+                        symbol: 'Z' as char as u32,
                     }),
                     balance: (&v.to_le_bytes()).to_vec(),
                 })
@@ -247,7 +247,7 @@ pub fn runes_by_height(input: &Vec<u8>) -> Result<RunesResponse> {
             );
             _rune.spacers = tables::RUNES.SPACERS.select(&rune).get_value::<u32>();
 
-            _rune.symbol = tables::RUNES.SYMBOL.select(&rune).get().to_vec();
+            _rune.symbol = tables::RUNES.SYMBOL.select(&rune).get_value::<u32>();
             _rune.divisibility = tables::RUNES.DIVISIBILITY.select(&rune).get_value::<u8>() as u32;
             result.runes.push(_rune);
         }

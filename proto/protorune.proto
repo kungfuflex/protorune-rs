@@ -12,7 +12,7 @@ message Rune {
   bytes name = 2;
   uint32 divisibility = 3;
   uint32 spacers = 4;
-  bytes symbol = 5;
+  uint32 symbol = 5;
 }
 
 message BalanceSheetItem {
