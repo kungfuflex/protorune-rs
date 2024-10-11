@@ -7,7 +7,7 @@ use crate::{
 use anyhow::{anyhow, Result};
 use metashrew::index_pointer::AtomicPointer;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Copy, Default)]
 pub struct RuneTransfer {
     pub id: ProtoruneRuneId,
     pub value: u128,

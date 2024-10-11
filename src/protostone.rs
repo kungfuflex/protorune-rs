@@ -5,6 +5,7 @@ use crate::{
     protoburn::{Protoburn, Protoburns},
     rune_transfer::{OutgoingRunes, RuneTransfer},
     tables::RuneTable,
+    balance_sheet::{ProtoruneRuneId}
 };
 use anyhow::{anyhow, Result};
 use bitcoin::{Block, OutPoint, Transaction, Txid};
@@ -44,7 +45,7 @@ fn has_protocol(protocol_tag: &u128) -> Result<bool> {
 #[derive(Clone)]
 pub struct Protostone {
     pub burn: Option<u128>,
-    pub message: Vec<u128>,
+    pub message: Vec<u8>,
     pub edicts: Option<Vec<Edict>>,
     pub refund: Option<u32>,
     pub pointer: Option<u32>,
@@ -63,6 +64,20 @@ fn varint_byte_len(input: &Vec<u8>, n: u128) -> Result<usize> {
     Ok(input.len() - cloned.len())
 }
 
+pub fn split_bytes(v: &Vec<u8>) -> Vec<u128> {
+  let mut result: Vec<Vec<u8>> = vec![];
+  v.iter().enumerate().rev().for_each(|(i, b)| {
+    if i % 15 == 0 {
+      result.push(Vec::<u8>::new());
+    }
+    result.last_mut().unwrap().push(*b);
+  });
+  result.iter_mut().rev().map(|mut v| {
+    v.resize(std::mem::size_of::<u128>(), 0u8);
+    return u128::from_le_bytes((&v[0..16]).try_into().unwrap());
+  }).collect::<Vec<u128>>()
+}
+
 impl Protostone {
     pub fn append_edicts(&mut self, edicts: Vec<Edict>) {
         self.edicts = Some(edicts);
@@ -70,7 +85,52 @@ impl Protostone {
     pub fn is_message(&self) -> bool {
         !self.message.is_empty()
     }
+    pub fn to_integers(&self) -> Result<Vec<u128>> {
+        let mut payload = Vec::<u128>::new();
 
+        if let Some(burn) = self.burn {
+          payload.push(Tag::Burn.into());
+          payload.push(burn.into());
+        }
+        if let Some(pointer) = self.pointer {
+          payload.push(Tag::ProtoPointer.into());
+          payload.push(pointer.into());
+        }
+        if let Some(refund) = self.refund {
+          payload.push(Tag::Refund.into());
+          payload.push(refund.into());
+        }
+        if let Some(from) = self.from.as_ref() {
+          if !from.is_empty() {
+            payload.push(Tag::From.into());
+            payload.push(from[0].into());
+          }
+        }
+        if !self.message.is_empty() {
+          for item in split_bytes(&self.message) {
+            payload.push(Tag::Message.into());
+            payload.push(item);
+          }
+        }
+        if let Some(_edicts) = self.edicts.as_ref() {
+          if !_edicts.is_empty() {
+            payload.push(Tag::Body.into());
+            let mut edicts = _edicts.clone();
+            edicts.sort_by_key(|edict| edict.id);
+
+            let mut previous = ProtoruneRuneId::default();
+            for edict in edicts {
+                let (block, tx) = previous.delta(edict.id.into()).ok_or("").map_err(|_| anyhow!("invalid delta"))?;
+                payload.push(block);
+                payload.push(tx);
+                payload.push(edict.amount);
+                payload.push(edict.output.into());
+                previous = edict.id.into();
+            }
+          }
+        }
+        Ok(payload)
+    }
     pub fn process_message<T: MessageContext>(
         &self,
         atomic: &mut AtomicPointer,
@@ -108,7 +168,7 @@ impl Protostone {
                     .flatten()
                     .collect::<Vec<u8>>(),
                 txindex,
-                runtime_balances: Box::new(BalanceSheet::default()),
+                runtime_balances: Box::new(balances_by_output.get(&u32::MAX).map(|v| v.clone()).unwrap_or_else(|| BalanceSheet::default())),
                 sheets: Box::new(BalanceSheet::default()),
             };
             let pointer = self.pointer.unwrap_or_else(|| default_output);
@@ -158,11 +218,11 @@ impl Protostone {
         Ok(Protostone {
             burn: Tag::Burn.take(&mut fields, |[tag]| Some(tag)),
             message: match fields.get(&<u128 as From<Tag>>::from(Tag::Message)) {
-                Some(v) => v
+                Some(v) => encode_varint_list(&v
                     .clone()
                     .try_into()
-                    .map_err(|_| anyhow!("protostone flawed"))?,
-                None => Vec::<u128>::new(),
+                    .map_err(|_| anyhow!("protostone flawed"))?),
+                None => Vec::<u8>::new(),
             },
             refund: Tag::Refund.take(&mut fields, |[tag]| Some(tag as u32)),
             pointer: Tag::ProtoPointer.take(&mut fields, |[tag]| Some(tag as u32)),
@@ -179,38 +239,17 @@ impl Protostone {
         })
     }
 
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut payload = Vec::new();
-
-        if let Some(v) = self.burn {
-            Tag::Burn.encode([v], &mut payload);
-        }
-
-        for m in &self.message {
-            Tag::Message.encode([*m], &mut payload);
-        }
-
-        Tag::Refund.encode_option(self.refund, &mut payload);
-
-        Tag::ProtoPointer.encode_option(self.pointer, &mut payload);
-
-        Tag::ProtoPointer.encode_option(self.pointer, &mut payload);
-
-        // TODO: finish
-
-        payload
-    }
 
     pub fn protostones_to_vec_u128(protostones: Vec<Protostone>) -> Vec<u128> {
         vec![]
     }
 
     pub fn from_runestone(tx: &Transaction, runestone: &Runestone) -> Result<Vec<Self>> {
-        if let None = runestone.proto.as_ref() {
+        if let None = runestone.protocol.as_ref() {
             return Ok(vec![]);
         }
         let protostone_raw = runestone
-            .proto
+            .protocol
             .clone()
             .ok_or(anyhow!("no protostone field in runestone"))?;
 
@@ -279,9 +318,29 @@ pub trait Protostones {
         default_output: u32,
         txid: Txid,
     ) -> Result<()>;
+    fn encipher(&self) -> Result<Vec<u128>>;
+}
+
+pub fn encode_varint_list(values: &Vec<u128>) -> Vec<u8> {
+  let mut result = Vec::<u8>::new();
+  for value in values {
+    varint::encode_to_vec(*value, &mut result);
+  }
+  result
 }
 
 impl Protostones for Vec<Protostone> {
+    fn encipher(&self) -> Result<Vec<u128>> {
+      let mut values = Vec::<u128>::new();
+      for stone in self {
+        values.push(stone.protocol_tag);
+        let varints = stone.to_integers()?;
+        values.push(varints.len() as u128);
+        values.extend(&varints);
+      }
+      let mut result = Vec::<u8>::new();
+      Ok(split_bytes(&encode_varint_list(&values)))
+    }
     fn burns(&self) -> Result<Vec<Protoburn>> {
         Ok(self
             .into_iter()

@@ -5,15 +5,22 @@ mod tests {
     use crate::proto::protorune::{ RunesByHeightRequest, WalletRequest };
     use crate::rune_transfer::RuneTransfer;
     use crate::tests::helpers;
+<<<<<<< HEAD
     use crate::tests::helpers::{ display_list_as_hex, display_vec_as_hex };
     use crate::utils::{ consensus_encode, field_to_name };
+=======
+    use crate::tests::helpers::{ get_address, display_list_as_hex, display_vec_as_hex };
+    use crate::utils::consensus_encode;
+    use crate::protostone::{Protostones, Protostone};
+    use ordinals::{Etching, Runestone};
+>>>>>>> e2b0c363819353fe6145005cf8288ed07c14cdf6
     use crate::Protorune;
     use crate::{ constants, message::MessageContextParcel, tables, view };
     use anyhow::Result;
     use bitcoin::consensus::serialize;
     use bitcoin::hashes::Hash;
-    use bitcoin::{ blockdata::block::Block, Address };
-    use bitcoin::{ OutPoint, Txid };
+    use bitcoin::address::{NetworkChecked};
+    use bitcoin::{TxIn, TxOut, OutPoint, Txid, Transaction, ScriptBuf, Witness, Sequence, Amount, blockdata::block::Block, Address};
     use hex;
     use metashrew::byte_view::ByteView;
     use metashrew::{
@@ -45,6 +52,100 @@ mod tests {
         }
     }
 
+    struct TestMessageContext(());
+
+    const address1: &'static str = "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu";
+    impl MessageContext for TestMessageContext {
+      fn protocol_tag() -> u128 {
+        1
+      }
+      fn handle(parcel: &MessageContextParcel) -> Result<(Vec<RuneTransfer>, BalanceSheet)> {
+        let mut new_runtime_balances = parcel.runtime_balances.clone();
+        <BalanceSheet as TryFrom<Vec<RuneTransfer>>>::try_from(parcel.runes.clone())?.pipe(&mut new_runtime_balances);
+        Ok((vec![], *new_runtime_balances))
+      }
+    }
+
+    #[wasm_bindgen_test]
+    fn protomessage_test() {
+      clear();
+      let mut test_block = helpers::create_block_with_coinbase_tx(840000);
+      let previous_output = OutPoint {
+        txid: bitcoin::Txid::from_str(
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .unwrap(),
+        vout: 0,
+      };
+      let input_script = ScriptBuf::new();
+
+    // Create a transaction input
+      let txin = TxIn {
+          previous_output,
+          script_sig: input_script,
+          sequence: Sequence::MAX,
+          witness: Witness::new(),
+      };
+
+      let address: Address<NetworkChecked> = get_address(address1);
+
+      let script_pubkey = address.script_pubkey();
+
+      // tx vout 0 will hold all 1000 of the runes
+      let txout = TxOut {
+          value: Amount::from_sat(100_000_000).to_sat(),
+          script_pubkey,
+      };
+
+      let runestone: ScriptBuf = (Runestone {
+        etching: Some(Etching {
+            divisibility: Some(2),
+            premine: Some(1000),
+            rune: Some(Rune::from_str("TESTTESTTEST").unwrap()),
+            spacers: Some(0),
+            symbol: Some(char::from_str("TESTTESTTEST").unwrap()),
+            turbo: true,
+            terms: None,
+        }),
+        pointer: Some(1),
+        edicts: Vec::new(),
+        mint: None,
+        protocol: match vec![Protostone {
+          burn: Some(0u128),
+          edicts: None,
+          pointer: Some(3),
+          refund: None,
+          from: None,
+          protocol_tag: 1,
+          message: vec![]
+        }, Protostone {
+          message: vec![1u8],
+          pointer: Some(0),
+          refund: Some(0),
+          edicts: None,
+          from: None,
+          burn: None,
+          protocol_tag: 1
+        }].encipher() {
+          Ok(v) => Some(v),
+          Err(_) => None
+        }
+      })
+      .encipher();
+
+      let op_return = TxOut {
+        value: Amount::from_sat(0).to_sat(),
+        script_pubkey: runestone,
+      };
+
+      test_block.txdata.push(Transaction {
+        version: 1,
+        lock_time: bitcoin::absolute::LockTime::ZERO,
+        input: vec![txin],
+        output: vec![txout, op_return],
+      });
+      Protorune::index_block::<TestMessageContext>(test_block.clone(), 840000);
+    }
     #[wasm_bindgen_test]
     fn height_blockhash() {
         clear();

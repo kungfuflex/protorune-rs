@@ -204,7 +204,7 @@ pub fn create_rune_transaction(config: &RunesTestingConfig) -> Transaction {
         pointer: Some(0),
         edicts: Vec::new(),
         mint: None,
-        proto: None,
+        protocol: None,
     }).encipher();
 
     let op_return = TxOut {
@@ -266,7 +266,7 @@ pub fn create_rune_transfer_transaction(
         pointer: Some(1), // refund to vout 1
         edicts: vec![edict],
         mint: None,
-        proto: None,
+        protocol: None,
     }).encipher();
 
     let op_return = TxOut {
