@@ -51,6 +51,10 @@ impl From<ProtostoneEdict> for Edict {
   }
 }
 
+pub fn into_protostone_edicts(v: Vec<Edict>) -> Vec<ProtostoneEdict> {
+    v.into_iter().map(|v| v.into()).collect()
+}
+
 
 pub fn make_edict_set_size_error() -> anyhow::Error {
   anyhow!("edict values did not appear in sets of four")
@@ -62,11 +66,13 @@ pub fn protostone_edicts_from_integers(v: &Vec<u128>) -> Result<Vec<ProtostoneEd
   for chunk in v.chunks(4) {
     match chunk {
       [block, tx, amount, output] => {
-        result.push(ProtostoneEdict {
+        let edict = ProtostoneEdict {
           id: next_protostone_edict_id(&last, *block, *tx).ok_or("").map_err(|_| anyhow!("edict processing failed -- overflow"))?,
           amount: *amount,
           output: *output
-        });
+        };
+        last = edict.id.clone();
+        result.push(edict);
       },
       _ => { return Err(make_edict_set_size_error()); },
     }
@@ -102,17 +108,30 @@ where
     Some((first, second))
 }
 
+fn take_n<T, I>(iter: &mut I, n: usize) -> Option<Vec<T>> {
+  let mut i = 0;
+  let mut result: Vec<T> = Vec::<T>::new();
+  loop {
+    if i == n { break; }
+    if let Some(v) = iter.next() {
+      result.push(v);
+      i += 1;
+    } else { break; }
+  }
+  if i == n { Some(result) } else { None }
+}
+
 pub fn to_fields(values: &Vec<u128>) -> HashMap<u128, Vec<u128>> {
   let mut map: HashMap<u128, Vec<u128>> = HashMap::new();
-  let mut iter = values.into_iter();
+  let mut iter = values.into_iter().map(|v| *v).collect::<Vec<u128>>().into_iter();
   while let Some((key, value)) = next_two(&mut iter) {
-    if *key == 0u128 {
+    if key == 0u128 {
       let remaining_values: Vec<u128> = iter.collect::<Vec<u128>>();
-      map.entry(&key).or_insert_with(Vec::new).push(*value);
+      map.entry(key).or_insert_with(Vec::new).push(value);
       map.get_mut(&key).unwrap().extend(remaining_values);
       break;
     } else {
-      map.entry(key).or_insert_with(Vec::new).push(*value);
+      map.entry(key).or_insert_with(Vec::new).push(value);
     }
   }
   map
@@ -170,7 +189,7 @@ pub fn join_to_bytes(v: &Vec<u128>) -> Vec<u8> {
 
 impl Protostone {
     pub fn append_edicts(&mut self, edicts: Vec<Edict>) {
-        self.edicts = Some(edicts);
+        self.edicts = into_protostone_edicts(edicts);
     }
     pub fn is_message(&self) -> bool {
         !self.message.is_empty()
@@ -192,7 +211,7 @@ impl Protostone {
         }
         if let Some(from) = self.from.as_ref() {
           payload.push(Tag::From.into());
-          payload.push(from.into());
+          payload.push((*from).into());
         }
         if !self.message.is_empty() {
           for item in split_bytes(&self.message) {
@@ -224,7 +243,7 @@ impl Protostone {
         txindex: u32,
         block: &Block,
         height: u64,
-        runestone_output_index: u32,
+        _runestone_output_index: u32,
         vout: u32,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
         default_output: u32,
@@ -312,12 +331,14 @@ impl Protostone {
     /// num_outputs: needed to check that the edicts of the protostone do not exceed the
     pub fn from_integers(values: &Vec<u128>) -> Result<Vec<Protostone>> {
         let mut raw: Vec<u8> = join_to_bytes(values);
-        let iter = Runestone::integers(&raw).into_iter();
+        let mut iter = Runestone::integers(&raw)?.into_iter();
         let mut result: Vec<Protostone> = vec![];
-        while let Some(first) = iter.next() {
-          if let Some(second) = iter.next() {
-             result.push(Protostone::from_fields_and_tag(&to_fields(&iter.take(second.try_into()?).collect::<Vec<u128>>()), first)?);
-          }
+        loop {
+          if let Some(first) = iter.next() {
+            if let Some(second) = iter.next() {
+              result.push(Protostone::from_fields_and_tag(&to_fields(&(take_n(&mut iter, second.try_into()?).ok_or("").map_err(|_| anyhow!("less values than expected")))?), first)?);
+            } else { break; }
+          } else { break; }
         }
         Ok(result)
     }

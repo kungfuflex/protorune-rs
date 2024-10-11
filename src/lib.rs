@@ -14,7 +14,7 @@ use ordinals::{ Artifact, Runestone };
 use ordinals::{ Edict, Etching, RuneId };
 use proto::protorune::{ Output, RunesResponse, WalletResponse };
 use protobuf::{ Message, SpecialFields };
-use protostone::{ add_to_indexable_protocols, initialized_protocol_index, Protostone, Protostones };
+use protostone::{ into_protostone_edicts, add_to_indexable_protocols, initialized_protocol_index, Protostone, Protostones };
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::io::Cursor;
@@ -138,7 +138,7 @@ impl Protorune {
         }
         Self::process_edicts(
             tx,
-            &runestone.edicts.clone().into(),
+            &into_protostone_edicts(runestone.edicts.clone()),
             &mut balances_by_output,
             &mut balance_sheet,
             &tx.output
