@@ -164,7 +164,7 @@ mod tests {
             .unwrap();
         let test_val = view::runes_by_height(&req).unwrap();
         let runes: Vec<crate::proto::protorune::Rune> = test_val.clone().runes;
-        assert_eq!(runes[0].divisibility, 2);
+        assert_eq!(runes[0].divisibility, 2 as u32);
         // assert_eq!(runes[0].txindex, 0);
     }
 

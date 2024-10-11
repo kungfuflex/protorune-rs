@@ -241,7 +241,6 @@ pub fn runes_by_height(input: &Vec<u8>) -> Result<RunesResponse> {
     if let Some(req) = proto::protorune::RunesByHeightRequest::parse_from_bytes(input).ok() {
         for rune in tables::HEIGHT_TO_RUNES.select_value(req.height).get_list().into_iter() {
             let mut _rune: Rune = Rune::new();
-            _rune.divisibility = tables::RUNES.DIVISIBILITY.select(&rune).get_value::<u32>();
             _rune.name = rune.clone().to_vec();
             _rune.runeId = MessageField::from_option(
                 RuneId::parse_from_bytes(&tables::RUNES.ETCHING_TO_RUNE_ID.select(&rune).get()).ok()
@@ -249,7 +248,7 @@ pub fn runes_by_height(input: &Vec<u8>) -> Result<RunesResponse> {
             _rune.spacers = tables::RUNES.SPACERS.select(&rune).get_value::<u32>();
 
             _rune.symbol = tables::RUNES.SYMBOL.select(&rune).get().to_vec();
-            _rune.divisibility = tables::RUNES.DIVISIBILITY.select(&rune).get_value::<u32>();
+            _rune.divisibility = tables::RUNES.DIVISIBILITY.select(&rune).get_value::<u8>() as u32;
             result.runes.push(_rune);
         }
     }
