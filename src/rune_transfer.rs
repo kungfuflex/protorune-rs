@@ -14,7 +14,7 @@ pub struct RuneTransfer {
 }
 
 impl RuneTransfer {
-    pub fn from_balance_sheet(s: BalanceSheet, tag: u128, atomic: &mut AtomicPointer) -> Vec<Self> {
+    pub fn from_balance_sheet(s: BalanceSheet) -> Vec<Self> {
         s.balances
             .iter()
             .map(|(id, v)| Self {
@@ -30,8 +30,7 @@ pub trait OutgoingRunes {
         &self,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
         vout: u32,
-        pointer: u32,
-        refund_pointer: u32,
+        pointer: u32
     ) -> Result<()>;
 }
 
@@ -40,14 +39,13 @@ impl OutgoingRunes for (Vec<RuneTransfer>, BalanceSheet) {
         &self,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
         vout: u32,
-        pointer: u32,
-        refund_pointer: u32,
+        pointer: u32
     ) -> Result<()> {
-        let mut runtime_initial = balances_by_output
+        let runtime_initial = balances_by_output
             .get(&u32::MAX)
-            .map(|v| BalanceSheet::default())
+            .map(|_| BalanceSheet::default())
             .unwrap_or_else(|| BalanceSheet::default());
-        let mut incoming_initial = balances_by_output
+        let incoming_initial = balances_by_output
             .get(&vout)
             .ok_or("")
             .map_err(|_| anyhow!("balance sheet not found"))?

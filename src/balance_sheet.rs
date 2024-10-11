@@ -6,14 +6,13 @@ use metashrew::{
     stdio::stdout,
 };
 use ordinals::RuneId;
-use protobuf::{Message, MessageField};
+use protobuf::{MessageField};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::Write;
 use std::sync::Arc;
 use std::{fmt, u128};
 
-#[derive(Eq, PartialEq, Hash, Clone, Copy, Debug, Default, Serialize, Deserialize)]
+#[derive(Eq, PartialOrd, Ord, PartialEq, Hash, Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub struct ProtoruneRuneId {
     pub block: u128,
     pub tx: u128,

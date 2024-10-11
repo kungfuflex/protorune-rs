@@ -21,6 +21,7 @@ use std::io::Cursor;
 use std::ops::Sub;
 use std::ptr;
 use std::sync::Arc;
+use crate::protostone::{ProtostoneEdict};
 
 pub mod balance_sheet;
 pub mod byte_utils;
@@ -37,6 +38,19 @@ pub mod utils;
 pub mod view;
 
 pub struct Protorune(());
+
+impl From<Edict> for ProtostoneEdict {
+  fn from(v: Edict) -> ProtostoneEdict {
+    ProtostoneEdict {
+      id: ProtoruneRuneId {
+          block: v.id.block.into(),
+          tx: v.id.tx.into()
+      },
+      amount: v.amount,
+      output: v.output as u128
+    }
+  }
+}
 
 pub fn default_output(tx: &Transaction) -> u32 {
     for i in 0..tx.output.len() {
@@ -124,7 +138,7 @@ impl Protorune {
         }
         Self::process_edicts(
             tx,
-            &runestone.edicts,
+            &runestone.edicts.clone().into(),
             &mut balances_by_output,
             &mut balance_sheet,
             &tx.output
@@ -181,10 +195,10 @@ impl Protorune {
     }
     pub fn process_edict(
         tx: &Transaction,
-        edict: &Edict,
+        edict: &ProtostoneEdict,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
         balances: &mut BalanceSheet,
-        outs: &Vec<TxOut>
+        _outs: &Vec<TxOut>
     ) -> Result<()> {
         if edict.id.block == 0 && edict.id.tx != 0 {
             Err(anyhow!("invalid edict"))
@@ -237,7 +251,7 @@ impl Protorune {
                     balances_by_output,
                     balances,
                     edict.amount,
-                    edict.output,
+                    edict.output as u32,
                     &edict.id.into()
                 )?;
             }
@@ -246,7 +260,7 @@ impl Protorune {
     }
     pub fn process_edicts(
         tx: &Transaction,
-        edicts: &Vec<Edict>,
+        edicts: &Vec<ProtostoneEdict>,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
         balances: &mut BalanceSheet,
         outs: &Vec<TxOut>
@@ -423,7 +437,7 @@ impl Protorune {
         for (index, tx) in block.txdata.iter().enumerate() {
             if let Some(Artifact::Runestone(ref runestone)) = Runestone::decipher(tx) {
                 let mut atomic = AtomicPointer::default();
-                let mut runestone_output_index: u32 = 42;
+                let runestone_output_index: u32 = 42;
                 match
                     Self::index_runestone::<T>(
                         &mut atomic,
@@ -435,7 +449,7 @@ impl Protorune {
                         runestone_output_index
                     )
                 {
-                    Err(e) => {
+                    Err(_) => {
                         atomic.rollback();
                     }
                     _ => {
@@ -447,7 +461,7 @@ impl Protorune {
         Ok(())
     }
     pub fn index_spendables(txdata: &Vec<Transaction>) -> Result<()> {
-        for (txindex, transaction) in txdata.iter().enumerate() {
+        for (_txindex, transaction) in txdata.iter().enumerate() {
             let tx_id = transaction.txid();
 
             for (index, output) in transaction.output.iter().enumerate() {
@@ -525,7 +539,7 @@ impl Protorune {
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
         unallocated_to: u32
     ) -> Result<()> {
-        let protostones = Protostone::from_runestone(tx, runestone)?;
+        let protostones = Protostone::from_runestone(runestone)?;
         if protostones.len() != 0 {
             let mut proto_balances_by_output = HashMap::<u32, BalanceSheet>::new();
             let table = tables::RuneTable::for_protocol(T::protocol_tag());
@@ -555,10 +569,10 @@ impl Protorune {
                 .into_iter()
                 .enumerate()
                 .map(|(i, stone)| {
-                    if stone.edicts.is_some() {
+                    if !stone.edicts.is_empty() {
                         Self::process_edicts(
                             tx,
-                            &stone.edicts.clone().ok_or(anyhow!("no edicts"))?,
+                            &stone.edicts.clone().into(),
                             &mut proto_balances_by_output,
                             &mut balance_sheet,
                             &tx.output
