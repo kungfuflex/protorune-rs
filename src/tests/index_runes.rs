@@ -5,10 +5,15 @@ mod tests {
     use crate::proto::protorune::{ RunesByHeightRequest, WalletRequest };
     use crate::rune_transfer::RuneTransfer;
     use crate::tests::helpers;
+<<<<<<< HEAD
+    use crate::tests::helpers::{ display_list_as_hex, display_vec_as_hex };
+    use crate::utils::{ consensus_encode, field_to_name };
+=======
     use crate::tests::helpers::{ get_address, display_list_as_hex, display_vec_as_hex };
     use crate::utils::consensus_encode;
     use crate::protostone::{Protostones, Protostone};
     use ordinals::{Etching, Runestone};
+>>>>>>> e2b0c363819353fe6145005cf8288ed07c14cdf6
     use crate::Protorune;
     use crate::{ constants, message::MessageContextParcel, tables, view };
     use anyhow::Result;
@@ -260,8 +265,11 @@ mod tests {
             .unwrap();
         let test_val = view::runes_by_height(&req).unwrap();
         let runes: Vec<crate::proto::protorune::Rune> = test_val.clone().runes;
+        let symbol = char::from_u32(runes[0].clone().symbol).unwrap();
+        let name = String::from_utf8(runes[0].name.clone()).unwrap();
         assert_eq!(runes[0].divisibility, 2 as u32);
-        // assert_eq!(runes[0].txindex, 0);
+        assert_eq!(symbol, 'Z');
+        assert_eq!(name, "TESTER");
     }
 
     #[wasm_bindgen_test]
