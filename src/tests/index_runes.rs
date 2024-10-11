@@ -2,7 +2,7 @@
 mod tests {
     use crate::balance_sheet::{ BalanceSheet, ProtoruneRuneId };
     use crate::message::MessageContext;
-    use crate::proto::protorune::WalletRequest;
+    use crate::proto::protorune::{ RunesByHeightRequest, WalletRequest };
     use crate::rune_transfer::RuneTransfer;
     use crate::tests::helpers;
     use crate::tests::helpers::{ display_list_as_hex, display_vec_as_hex };
@@ -15,6 +15,7 @@ mod tests {
     use bitcoin::{ blockdata::block::Block, Address };
     use bitcoin::{ OutPoint, Txid };
     use hex;
+    use metashrew::byte_view::ByteView;
     use metashrew::{
         clear,
         flush,
@@ -137,15 +138,33 @@ mod tests {
         assert_eq!(runes[0].txindex, 0);
     }
 
+    // #[wasm_bindgen_test]
+    // fn protorunes_by_address_test() {
+    //     clear();
+    //     let (test_block, _) = helpers::create_block_with_rune_tx();
+    //     let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
+    //     let address = "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".as_bytes().to_vec();
+    //     let test_val = view::runes_by_address(&address).unwrap();
+    //     let runes: Vec<crate::proto::protorune::OutpointResponse> = test_val.clone().outpoints;
+    //     // assert_eq!(runes[0].height, 840001);
+    //     // assert_eq!(runes[0].txindex, 0);
+    // }
+
     #[wasm_bindgen_test]
-    fn protorunes_by_address_test() {
+    fn runes_by_height_test() {
         clear();
         let (test_block, _) = helpers::create_block_with_rune_tx();
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
-        let address = "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu".as_bytes().to_vec();
-        let test_val = view::runes_by_address(&address).unwrap();
-        let runes: Vec<crate::proto::protorune::OutpointResponse> = test_val.clone().outpoints;
-        // assert_eq!(runes[0].height, 840001);
+        let height: u64 = 840001;
+        let req: Vec<u8> = (RunesByHeightRequest {
+            height,
+            special_fields: SpecialFields::new(),
+        })
+            .write_to_bytes()
+            .unwrap();
+        let test_val = view::runes_by_height(&req).unwrap();
+        let runes: Vec<crate::proto::protorune::Rune> = test_val.clone().runes;
+        assert_eq!(runes[0].divisibility, 2);
         // assert_eq!(runes[0].txindex, 0);
     }
 

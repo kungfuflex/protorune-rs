@@ -7,6 +7,8 @@ use crate::proto::protorune::{
     Output,
     Rune,
     RuneId,
+    RunesByHeightRequest,
+    RunesResponse,
     WalletResponse,
 };
 use crate::{ proto, tables };
@@ -74,7 +76,7 @@ impl From<BalanceSheet> for ProtoBalanceSheet {
                         name: "name".as_bytes().to_vec(),
                         divisibility: 1,
                         spacers: 1,
-                        symbol: 1,
+                        symbol: "Z".as_bytes().to_vec(),
                     }),
                     balance: (&v.to_le_bytes()).to_vec(),
                 })
@@ -230,6 +232,26 @@ pub fn protorunes_by_address(input: &Vec<u8>) -> Result<WalletResponse> {
                 }
             )
             .collect::<Result<Vec<OutpointResponse>>>()?;
+    }
+    Ok(result)
+}
+
+pub fn runes_by_height(input: &Vec<u8>) -> Result<RunesResponse> {
+    let mut result: RunesResponse = RunesResponse::new();
+    if let Some(req) = proto::protorune::RunesByHeightRequest::parse_from_bytes(input).ok() {
+        for rune in tables::HEIGHT_TO_RUNES.select_value(req.height).get_list().into_iter() {
+            let mut _rune: Rune = Rune::new();
+            _rune.divisibility = tables::RUNES.DIVISIBILITY.select(&rune).get_value::<u32>();
+            _rune.name = rune.clone().to_vec();
+            _rune.runeId = MessageField::from_option(
+                RuneId::parse_from_bytes(&tables::RUNES.ETCHING_TO_RUNE_ID.select(&rune).get()).ok()
+            );
+            _rune.spacers = tables::RUNES.SPACERS.select(&rune).get_value::<u32>();
+
+            _rune.symbol = tables::RUNES.SYMBOL.select(&rune).get().to_vec();
+            _rune.divisibility = tables::RUNES.DIVISIBILITY.select(&rune).get_value::<u32>();
+            result.runes.push(_rune);
+        }
     }
     Ok(result)
 }

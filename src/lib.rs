@@ -12,7 +12,7 @@ use metashrew::utils::{ consume_sized_int, consume_to_end };
 use metashrew::{ flush, input, println, stdout };
 use ordinals::{ Artifact, Runestone };
 use ordinals::{ Edict, Etching, RuneId };
-use proto::protorune::{ Output, WalletResponse };
+use proto::protorune::{ Output, RunesResponse, WalletResponse };
 use protobuf::{ Message, SpecialFields };
 use protostone::{ add_to_indexable_protocols, initialized_protocol_index, Protostone, Protostones };
 use std::collections::HashMap;
@@ -81,6 +81,13 @@ pub fn protorunesbyaddress() -> i32 {
     return to_ptr(&mut to_arraybuffer_layout(Arc::new(result.write_to_bytes().unwrap()))) + 4;
 }
 
+#[no_mangle]
+pub fn runesbyheight() -> i32 {
+    let mut data: Cursor<Vec<u8>> = Cursor::new(input());
+    let result: RunesResponse = view::runes_by_height(&consume_to_end(&mut data).unwrap()).unwrap();
+    return to_ptr(&mut to_arraybuffer_layout(Arc::new(result.write_to_bytes().unwrap()))) + 4;
+}
+
 impl Protorune {
     pub fn index_runestone<T: MessageContext>(
         atomic: &mut AtomicPointer,
@@ -108,14 +115,7 @@ impl Protorune {
         let mut balance_sheet = BalanceSheet::concat(sheets);
         let mut balances_by_output = HashMap::<u32, BalanceSheet>::new();
         if let Some(etching) = runestone.etching.as_ref() {
-            Self::index_etching(
-                atomic,
-                etching,
-                index,
-                height,
-                &mut balance_sheet,
-                &mut balances_by_output
-            )?;
+            Self::index_etching(atomic, etching, index, height, &mut balances_by_output)?;
         }
         if let Some(mint) = runestone.mint {
             if !mint.to_string().is_empty() {
@@ -308,7 +308,6 @@ impl Protorune {
         etching: &Etching,
         index: u32,
         height: u64,
-        balance_sheet: &mut BalanceSheet,
         balances_by_output: &mut HashMap<u32, BalanceSheet>
     ) -> Result<()> {
         if let Some(name) = etching.rune {
@@ -389,7 +388,11 @@ impl Protorune {
 
             atomic
                 .derive(&tables::RUNES.ETCHINGS.select(&name.0.to_string().into_bytes()))
-                .append(Arc::new(name.0.to_string().into_bytes()));
+                .append(Arc::new(name.clone().0.to_string().into_bytes()));
+
+            atomic
+                .derive(&tables::HEIGHT_TO_RUNES.select_value(height))
+                .append(Arc::new(name.clone().0.to_string().into_bytes()));
         }
         Ok(())
     }
@@ -471,7 +474,6 @@ impl Protorune {
     pub fn index_transaction_ids(block: &Block, height: u64) -> Result<()> {
         let ptr = tables::RUNES.HEIGHT_TO_TRANSACTION_IDS.select_value::<u64>(height);
         for tx in &block.txdata {
-            println!("{}", tx.txid());
             ptr.append(Arc::new(tx.txid().as_byte_array().to_vec()));
         }
         Ok(())
