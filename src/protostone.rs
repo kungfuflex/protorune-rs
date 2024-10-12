@@ -108,7 +108,7 @@ where
     Some((first, second))
 }
 
-fn take_n<T, I>(iter: &mut I, n: usize) -> Option<Vec<T>> {
+fn take_n<T, I: Iterator<Item = T>>(iter: &mut I, n: usize) -> Option<Vec<T>> {
   let mut i = 0;
   let mut result: Vec<T> = Vec::<T>::new();
   loop {
