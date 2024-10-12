@@ -1,4 +1,4 @@
-use bitcoin::Network::{Bitcoin, Regtest};
+use bitcoin::Network::{Bitcoin};
 
 pub const RUNESTONE_TAG: u16 = 0x5d6a;
 pub const OP_RETURN: u8 = 0x6a;

@@ -1,9 +1,8 @@
 use anyhow::Result;
 use bitcoin::consensus::{ deserialize_partial, encode::{ Decodable, Encodable } };
-use metashrew::utils::{ consume_to_end, is_empty, remaining_slice };
+use metashrew::utils::{ is_empty, remaining_slice };
 use ordinals::varint;
 use std::io::BufRead;
-use std::io::Cursor;
 pub fn consensus_encode<T: Encodable>(v: &T) -> Result<Vec<u8>> {
     let mut result = Vec::<u8>::new();
     <T as Encodable>::consensus_encode::<Vec<u8>>(v, &mut result)?;
@@ -27,7 +26,7 @@ pub fn decode_varint_list(cursor: &mut std::io::Cursor<Vec<u8>>) -> Result<Vec<u
     Ok(result)
 }
 
-pub fn field_to_name(mut data: &u128) -> String {
+pub fn field_to_name(data: &u128) -> String {
     let mut v = data + 1; // Increment by 1
     let mut result = String::new();
     let twenty_six: u128 = 26;

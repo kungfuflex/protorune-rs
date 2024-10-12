@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    balance_sheet::{BalanceSheet, ProtoruneRuneId},
-    tables::RuneTable,
+    balance_sheet::{BalanceSheet, ProtoruneRuneId}
 };
 use anyhow::{anyhow, Result};
-use metashrew::index_pointer::AtomicPointer;
 
 #[derive(Clone, Copy, Default)]
 pub struct RuneTransfer {

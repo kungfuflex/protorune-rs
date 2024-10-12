@@ -1,11 +1,9 @@
-use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
+use crate::balance_sheet::{BalanceSheet};
 use crate::rune_transfer::RuneTransfer;
-use crate::tables::RuneTable;
 use crate::utils::consensus_encode;
 use anyhow::Result;
-use bitcoin::{Block, OutPoint, Transaction, Txid};
+use bitcoin::{Block, OutPoint, Transaction};
 use metashrew::index_pointer::AtomicPointer;
-use std::collections::HashMap;
 use std::u128;
 
 pub trait MessageContext {

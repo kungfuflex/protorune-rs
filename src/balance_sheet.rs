@@ -1,12 +1,12 @@
 use crate::rune_transfer::RuneTransfer;
 use anyhow::{anyhow, Result};
+#[allow(unused_imports)]
 use metashrew::{
     index_pointer::{IndexPointer, KeyValuePointer},
     println,
     stdio::stdout,
 };
 use ordinals::RuneId;
-use protobuf::{MessageField};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;

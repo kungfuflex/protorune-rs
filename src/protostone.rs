@@ -4,16 +4,15 @@ use crate::{
     message::{MessageContext, MessageContextParcel},
     protoburn::{Protoburn, Protoburns},
     rune_transfer::{OutgoingRunes, RuneTransfer},
-    tables::RuneTable,
     balance_sheet::{ProtoruneRuneId}
 };
 use anyhow::{anyhow, Result};
-use bitcoin::{Block, OutPoint, Transaction, Txid};
+use bitcoin::{Block, Transaction, Txid};
 use metashrew::index_pointer::{AtomicPointer, IndexPointer};
 use ordinals::{
-    runestone::{message::Message, tag::Tag},
     varint, Edict, Runestone,
-    RuneId
+    RuneId,
+    runestone::tag::{Tag}
 };
 use std::collections::{HashMap, HashSet};
 
@@ -89,6 +88,7 @@ pub fn add_to_indexable_protocols(protocol_tag: u128) -> Result<()> {
     Ok(())
 }
 
+/*
 fn has_protocol(protocol_tag: &u128) -> Result<bool> {
     unsafe {
         if let Some(set) = PROTOCOLS.as_mut() {
@@ -98,6 +98,7 @@ fn has_protocol(protocol_tag: &u128) -> Result<bool> {
     }
     Ok(false)
 }
+*/
 
 fn next_two<T, I>(iter: &mut I) -> Option<(T, T)>
 where
@@ -148,6 +149,7 @@ pub struct Protostone {
     pub protocol_tag: u128,
 }
 
+/*
 fn varint_byte_len(input: &Vec<u8>, n: u128) -> Result<usize> {
     let mut cloned = input.clone();
     for _i in 0..n {
@@ -158,6 +160,7 @@ fn varint_byte_len(input: &Vec<u8>, n: u128) -> Result<usize> {
 
     Ok(input.len() - cloned.len())
 }
+*/
 
 pub fn split_bytes(v: &Vec<u8>) -> Vec<u128> {
   let mut result: Vec<Vec<u8>> = vec![];
@@ -330,7 +333,7 @@ impl Protostone {
     /// protostone_raw: LEB encoded Protostone
     /// num_outputs: needed to check that the edicts of the protostone do not exceed the
     pub fn from_integers(values: &Vec<u128>) -> Result<Vec<Protostone>> {
-        let mut raw: Vec<u8> = join_to_bytes(values);
+        let raw: Vec<u8> = join_to_bytes(values);
         let mut iter = Runestone::integers(&raw)?.into_iter();
         let mut result: Vec<Protostone> = vec![];
         loop {

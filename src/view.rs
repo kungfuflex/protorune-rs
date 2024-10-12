@@ -7,20 +7,20 @@ use crate::proto::protorune::{
     Output,
     Rune,
     RuneId,
-    RunesByHeightRequest,
+    //RunesByHeightRequest,
     RunesResponse,
     WalletResponse,
 };
 use crate::{ proto, tables };
-use crate::utils::{ consensus_decode, consensus_encode };
+use crate::utils::{ consensus_decode };
 use anyhow::{ anyhow, Result };
 use bitcoin;
-use bitcoin::consensus::Decodable;
-use bitcoin::hashes::{ sha256d, Hash };
+//use bitcoin::consensus::Decodable;
+use bitcoin::hashes::{ Hash };
 use bitcoin::OutPoint;
-use hex;
+//use hex;
 use metashrew::byte_view::ByteView;
-use metashrew::utils::{ consume_exact, consume_sized_int };
+//use metashrew::utils::{ consume_exact, consume_sized_int };
 use metashrew::{ index_pointer::{KeyValuePointer } };
 use protobuf::{ Message, MessageField, SpecialFields };
 use std::collections::HashMap;
