@@ -5,15 +5,10 @@ mod tests {
     use crate::proto::protorune::{ RunesByHeightRequest, WalletRequest };
     use crate::rune_transfer::RuneTransfer;
     use crate::tests::helpers;
-<<<<<<< HEAD
-    use crate::tests::helpers::{ display_list_as_hex, display_vec_as_hex };
     use crate::utils::{ consensus_encode, field_to_name };
-=======
     use crate::tests::helpers::{ get_address, display_list_as_hex, display_vec_as_hex };
-    use crate::utils::consensus_encode;
     use crate::protostone::{Protostones, Protostone};
     use ordinals::{Etching, Runestone};
->>>>>>> e2b0c363819353fe6145005cf8288ed07c14cdf6
     use crate::Protorune;
     use crate::{ constants, message::MessageContextParcel, tables, view };
     use anyhow::Result;
@@ -111,8 +106,8 @@ mod tests {
         edicts: Vec::new(),
         mint: None,
         protocol: match vec![Protostone {
-          burn: Some(0u128),
-          edicts: None,
+          burn: Some(0u32),
+          edicts: vec![],
           pointer: Some(3),
           refund: None,
           from: None,
@@ -122,7 +117,7 @@ mod tests {
           message: vec![1u8],
           pointer: Some(0),
           refund: Some(0),
-          edicts: None,
+          edicts: vec![],
           from: None,
           burn: None,
           protocol_tag: 1
