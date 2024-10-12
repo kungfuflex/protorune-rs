@@ -1,4 +1,4 @@
-use crate::balance_sheet::{BalanceSheet};
+use crate::balance_sheet::BalanceSheet;
 use crate::rune_transfer::RuneTransfer;
 use crate::utils::consensus_encode;
 use anyhow::Result;

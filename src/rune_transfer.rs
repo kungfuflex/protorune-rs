@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{
-    balance_sheet::{BalanceSheet, ProtoruneRuneId}
-};
+use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
 use anyhow::{anyhow, Result};
 
 #[derive(Clone, Copy, Default)]
@@ -28,7 +26,7 @@ pub trait OutgoingRunes {
         &self,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
         vout: u32,
-        pointer: u32
+        pointer: u32,
     ) -> Result<()>;
 }
 
@@ -37,7 +35,7 @@ impl OutgoingRunes for (Vec<RuneTransfer>, BalanceSheet) {
         &self,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
         vout: u32,
-        pointer: u32
+        pointer: u32,
     ) -> Result<()> {
         let runtime_initial = balances_by_output
             .get(&u32::MAX)

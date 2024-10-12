@@ -1,6 +1,9 @@
 use anyhow::Result;
-use bitcoin::consensus::{ deserialize_partial, encode::{ Decodable, Encodable } };
-use metashrew::utils::{ is_empty, remaining_slice };
+use bitcoin::consensus::{
+    deserialize_partial,
+    encode::{Decodable, Encodable},
+};
+use metashrew::utils::{is_empty, remaining_slice};
 use ordinals::varint;
 use std::io::BufRead;
 pub fn consensus_encode<T: Encodable>(v: &T) -> Result<Vec<u8>> {
