@@ -1159,7 +1159,7 @@ mod tests {
                 }),
                 pointer: Some(0),
                 mint: Some(RuneId::new(1, 1).unwrap()),
-                proto: None
+                protocol: None
             }),
         );
     }
@@ -1745,7 +1745,7 @@ mod tests {
                 }),
                 mint: Some(RuneId::new(17, 18).unwrap()),
                 pointer: Some(0),
-                proto: None,
+                protocol: None,
             },
             &[
                 Tag::Flags.into(),
