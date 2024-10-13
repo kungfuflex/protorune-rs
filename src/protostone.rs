@@ -476,6 +476,34 @@ impl Protostones for Vec<Protostone> {
 
 #[cfg(test)]
 mod tests {
+    /// Lets say we have a protostone defined as follows: vec<u128>![1 4 83 0 91 3]. This is a protostone with a protocol tag of 1, a length of 4, tag 83 (burn) is 0, tag 91 (pointer) is 3.
+    /// Encoding:
+    /// 1. Protocol step: Each u128 is LEB encoded. Each u128 becomes a vector of up to 16 bytes and is then concatenated together. LEB saves space by allowing smaller numbers to be one byte.
+    ///         type: vec<u8>
+    ///         [1 4 83 0 91 3]
+    /// 2. Compression step: Combine the vec<u8> into a vec<u128> where we don't use the 16th byte. We should make the endianess such that the runes encodes is most efficient
+    ///         type: vec<u128>. In this case, we can fit all our numbers into one u128.
+    ///         this protostone becomes one u128 with bytes [1 4 83 0 91 3 0 0 0 0 0 0 0 0 0 0] or [0 0 0 0 0 0 0 0 0 0 3 91 0 83 4 1]
+    ///         machine is little endian (wasm is little endian) = then we want to store it [1 4 83 0 91 3 0 0 0 0 0 0 0 0 0 0]
+    ///         if machine was big endian = then we want to store it [0 0 0 0 0 0 0 0 0 0 3 91 0 83 4 1]
+    ///
+    ///         CONCLUSION:
+    ///         since we are building to wasm, and wasm is little endian, we should store it with the data bytes at the lower memory address, so [1 4 83 0 91 3 0 0 0 0 0 0 0 0 0 0]
+    /// 3. (Runes) LEB Encode each u128. The smaller the u128 the better.
+
+    /// Assume runes already read the proto from tags.
+    /// Decoding: proto is a vec<u128> (arbituary vector of u128 that we have to decode into a protostone) vec![u128([1 4 83 0 91 3 0 0 0 0 0 0 0 0 0 0])]
+    /// 1. Undo the compression: convert each u128 into a vec<u8> and then concat to one array.
+    ///         Important notes:
+    ///          - We need to strip the 16th byte from each u128 to follow the spec
+    ///          - [REMOVED] For the very last u128, we strip all postfix zeroes -- we don't want to do this because what if our input was like this?: vec![u128([1 4 91 3 83 0 0 0 0 0 0 0 0 0 0 0])]
+    ///         input: vec![u128([1 4 83 0 91 3 0 0 0 0 0 0 0 0 0 0])]
+    ///         output: vec<u8>![1 4 83 0 91 3 0 0 0 0 0 0 0 0 0]
+    ///
+    /// 2. Now we can LEB decode this vector of bytes into a vector of u128s. Note in this example, all numbers are less than 7 bits so their LEB representation is the same as the original u128.
+    ///         input: vec<u8>![1 4 83 0 91 3 0 0 0 0 0 0 0 0 0]
+    ///         output: vec<u128>![1 4 83 0 91 3 0 0 0 0 0 0 0 0 0]
+    ///
     use super::*;
 
     fn print_u128_bytes(vec: Vec<u128>) {
@@ -488,9 +516,6 @@ mod tests {
         }
     }
 
-    // use wasm_bindgen_test::wasm_bindgen_test;
-
-    // #[wasm_bindgen_test]
     #[test]
     fn test_protostone_encipher_burn() {
         let protostones = vec![Protostone {
@@ -512,34 +537,33 @@ mod tests {
         assert_eq!(protostones, protostone_decipered);
     }
 
-    /// Lets say we have a protostone defined as follows: vec<u128>![1 4 83 0 91 3]. This is a protostone with a protocol tag of 1, a length of 4, tag 83 (burn) is 0, tag 91 (pointer) is 3.
-    /// Encoding:
-    /// 1. Protocol step: Each u128 is LEB encoded. Each u128 becomes a vector of up to 16 bytes and is then concatenated together. LEB saves space by allowing smaller numbers to be one byte.
-    ///         type: vec<u8>
-    ///         [1 4 83 0 91 3]
-    /// 2. Compression step: Combine the vec<u8> into a vec<u128> where we don't use the 16th byte. We should make the endianess such that the runes encodes is most efficient
-    ///         type: vec<u128>. In this case, we can fit all our numbers into one u128.
-    ///         this protostone becomes one u128 with bytes [1 4 83 0 91 3 0 0 0 0 0 0 0 0 0 0] or [0 0 0 0 0 0 0 0 0 0 3 91 0 83 4 1]
-    ///         machine is little endian (wasm is little endian) = then we want to store it [1 4 83 0 91 3 0 0 0 0 0 0 0 0 0 0]
-    ///         if machine was big endian = then we want to store it [0 0 0 0 0 0 0 0 0 0 3 91 0 83 4 1]
-    ///         
-    ///         CONCLUSION:
-    ///         since we are building to wasm, and wasm is little endian, we should store it with the data bytes at the lower memory address, so [1 4 83 0 91 3 0 0 0 0 0 0 0 0 0 0]
-    /// 3. (Runes) LEB Encode each u128. The smaller the u128 the better.
+    #[test]
+    fn test_protostone_encipher_edict() {
+        let protostones = vec![Protostone {
+            burn: Some(0u32),
+            edicts: vec![ProtostoneEdict {
+                id: ProtoruneRuneId {
+                    block: 8400000,
+                    tx: 1,
+                },
+                amount: 123456789,
+                output: 2,
+            }],
+            pointer: Some(3),
+            refund: None,
+            from: None,
+            protocol_tag: 1,
+            message: vec![],
+        }];
 
-    /// Assume runes already read the proto from tags.
-    /// Decoding: proto is a vec<u128> (arbituary vector of u128 that we have to decode into a protostone) vec![u128([1 4 83 0 91 3 0 0 0 0 0 0 0 0 0 0])]
-    /// 1. Undo the compression: convert each u128 into a vec<u8> and then concat to one array.
-    ///         Important notes:
-    ///          - We need to strip the 16th byte from each u128 to follow the spec
-    ///          - [REMOVED] For the very last u128, we strip all postfix zeroes -- we don't want to do this because what if our input was like this?: vec![u128([1 4 91 3 83 0 0 0 0 0 0 0 0 0 0 0])]
-    ///         input: vec![u128([1 4 83 0 91 3 0 0 0 0 0 0 0 0 0 0])]
-    ///         output: vec<u8>![1 4 83 0 91 3 0 0 0 0 0 0 0 0 0]
-    ///
-    /// 2. Now we can LEB decode this vector of bytes into a vector of u128s. Note in this example, all numbers are less than 7 bits so their LEB representation is the same as the original u128.
-    ///         input: vec<u8>![1 4 83 0 91 3 0 0 0 0 0 0 0 0 0]
-    ///         output: vec<u128>![1 4 83 0 91 3 0 0 0 0 0 0 0 0 0]
-    ///         
+        let protostone_enciphered = protostones.encipher().unwrap();
+
+        print_u128_bytes(protostone_enciphered.clone());
+
+        let protostone_decipered = Protostone::decipher(&protostone_enciphered).unwrap();
+
+        assert_eq!(protostones, protostone_decipered);
+    }
 
     #[test]
     fn test_protostone_encipher_multiple_u128() {
@@ -593,14 +617,4 @@ mod tests {
 
         assert_eq!(protostones, protostone_decipered);
     }
-
-    // Protostone {
-    //     message: vec![1u8],
-    //     pointer: Some(0),
-    //     refund: Some(0),
-    //     edicts: vec![],
-    //     from: None,
-    //     burn: None,
-    //     protocol_tag: 1,
-    // },
 }
