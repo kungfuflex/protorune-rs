@@ -209,12 +209,12 @@ pub fn split_bytes(v: &Vec<u8>) -> Vec<u128> {
 pub fn join_to_bytes(v: &Vec<u128>) -> Vec<u8> {
     let mut result: Vec<u8> = vec![];
     for (i, integer) in v.iter().enumerate() {
-        if i != v.len() - 1 {
-            result.extend(<u128 as ByteUtils>::snap_to_15_bytes(*integer))
-            // we don't insert a 0 byte for the 16th byte
-        } else {
-            result.extend(<u128 as ByteUtils>::to_aligned_bytes(*integer))
-        }
+        // if i != v.len() - 1 {
+        result.extend(<u128 as ByteUtils>::snap_to_15_bytes(*integer))
+        // we don't insert a 0 byte for the 16th byte
+        // } else {
+        //     result.extend(<u128 as ByteUtils>::to_aligned_bytes(*integer))
+        // }
     }
     result
 }
@@ -383,6 +383,11 @@ impl Protostone {
         let mut result: Vec<Protostone> = vec![];
         loop {
             if let Some(protocol_tag) = iter.next() {
+                // if protocol_tag == 0 then break, since we don't allow protocol tag to equal zero anyways.
+                // also this means we have postfix zeroes in the last u128
+                if protocol_tag == 0 {
+                    break;
+                }
                 if let Some(length) = iter.next() {
                     result.push(Protostone::from_fields_and_tag(
                         &to_fields(
@@ -527,18 +532,17 @@ mod tests {
     /// 1. Undo the compression: convert each u128 into a vec<u8> and then concat to one array.
     ///         Important notes:
     ///          - We need to strip the 16th byte from each u128 to follow the spec
-    ///          - For the very last u128, we strip all postfix zeroes (maybe we don't want to do this?)
+    ///          - [REMOVED] For the very last u128, we strip all postfix zeroes -- we don't want to do this because what if our input was like this?: vec![u128([1 4 91 3 83 0 0 0 0 0 0 0 0 0 0 0])]
     ///         input: vec![u128([1 4 83 0 91 3 0 0 0 0 0 0 0 0 0 0])]
     ///         output: vec<u8>![1 4 83 0 91 3 0 0 0 0 0 0 0 0 0]
     ///
-    ///         but what if our input was like this?: vec![u128([1 4 91 3 83 0 0 0 0 0 0 0 0 0 0 0])]
     /// 2. Now we can LEB decode this vector of bytes into a vector of u128s. Note in this example, all numbers are less than 7 bits so their LEB representation is the same as the original u128.
     ///         input: vec<u8>![1 4 83 0 91 3 0 0 0 0 0 0 0 0 0]
     ///         output: vec<u128>![1 4 83 0 91 3 0 0 0 0 0 0 0 0 0]
     ///         
 
     #[test]
-    fn test_protostone_encipher_burn_multiple_u128() {
+    fn test_protostone_encipher_multiple_u128() {
         let protostones = vec![Protostone {
             burn: Some(0u32),
             edicts: vec![],
@@ -546,8 +550,40 @@ mod tests {
             refund: None,
             from: None,
             protocol_tag: 1,
-            message: vec![0, 1, 2, 3, 4, 5, 6, 7, 8],
+            message: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0, 0, 0], // what we pass in should be well defined by the subprotocol
         }];
+
+        let protostone_enciphered = protostones.encipher().unwrap();
+
+        print_u128_bytes(protostone_enciphered.clone());
+
+        let protostone_decipered = Protostone::decipher(&protostone_enciphered).unwrap();
+
+        assert_eq!(protostones, protostone_decipered);
+    }
+
+    #[test]
+    fn test_protostone_encipher_multiple_protostones() {
+        let protostones = vec![
+            Protostone {
+                burn: Some(0u32),
+                edicts: vec![],
+                pointer: Some(3),
+                refund: None,
+                from: None,
+                protocol_tag: 1,
+                message: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0, 0, 0],
+            },
+            Protostone {
+                burn: Some(1u32),
+                edicts: vec![],
+                pointer: Some(2),
+                refund: None,
+                from: None,
+                protocol_tag: 3,
+                message: vec![100, 11, 112, 113, 114, 115, 116, 117, 118, 0, 0, 0, 0, 0, 0],
+            },
+        ];
 
         let protostone_enciphered = protostones.encipher().unwrap();
 
