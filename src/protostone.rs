@@ -34,7 +34,7 @@ pub fn next_protostone_edict_id(
     })
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialEq, Debug)]
 pub struct ProtostoneEdict {
     pub id: ProtoruneRuneId,
     pub amount: u128,
@@ -157,7 +157,7 @@ pub fn to_fields(values: &Vec<u128>) -> HashMap<u128, Vec<u128>> {
     map
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Protostone {
     pub burn: Option<u32>,
     pub message: Vec<u8>,
@@ -181,9 +181,17 @@ fn varint_byte_len(input: &Vec<u8>, n: u128) -> Result<usize> {
 }
 */
 
+/// This takes in an arbituary amount of bytes, and
+/// converts it in a list of u128s, making sure we don't
+/// write to the 15th byte of the u128.
+///
+/// To ensure the range of bytearrays does not exclude
+/// any bitfields within its terminal bytes, we choose a maximum length f
+/// or a u128 value within a u128[] intended for interpretation as a u8[] to 15 bytes.
+/// This allows us to safely model an arbitrary bytearray within the Runestone paradigm.
 pub fn split_bytes(v: &Vec<u8>) -> Vec<u128> {
     let mut result: Vec<Vec<u8>> = vec![];
-    v.iter().enumerate().rev().for_each(|(i, b)| {
+    v.iter().enumerate().for_each(|(i, b)| {
         if i % 15 == 0 {
             result.push(Vec::<u8>::new());
         }
@@ -204,6 +212,7 @@ pub fn join_to_bytes(v: &Vec<u128>) -> Vec<u8> {
     for (i, integer) in v.iter().enumerate() {
         if i == v.len() - 1 {
             result.extend(<u128 as ByteUtils>::snap_to_15_bytes(*integer))
+            // we don't insert a 0 byte for the 16th byte
         } else {
             result.extend(<u128 as ByteUtils>::to_aligned_bytes(*integer))
         }
@@ -218,6 +227,8 @@ impl Protostone {
     pub fn is_message(&self) -> bool {
         !self.message.is_empty()
     }
+    /// Enciphers a protostone into a vector of u128s
+    /// NOTE: This is not LEB encoded
     pub fn to_integers(&self) -> Result<Vec<u128>> {
         let mut payload = Vec::<u128>::new();
 
@@ -360,27 +371,27 @@ impl Protostone {
             .clone()
             .ok_or(anyhow!("no protostone field in runestone"))?;
 
-        Ok(Protostone::from_integers(&protostone_raw)?)
+        Ok(Protostone::decipher(&protostone_raw)?)
     }
 
     /// Gets a vector of Protostones from an arbituary vector of bytes
     ///
     /// protostone_raw: LEB encoded Protostone
     /// num_outputs: needed to check that the edicts of the protostone do not exceed the
-    pub fn from_integers(values: &Vec<u128>) -> Result<Vec<Protostone>> {
+    pub fn decipher(values: &Vec<u128>) -> Result<Vec<Protostone>> {
         let raw: Vec<u8> = join_to_bytes(values);
         let mut iter = Runestone::integers(&raw)?.into_iter();
         let mut result: Vec<Protostone> = vec![];
         loop {
-            if let Some(first) = iter.next() {
-                if let Some(second) = iter.next() {
+            if let Some(protocol_tag) = iter.next() {
+                if let Some(length) = iter.next() {
                     result.push(Protostone::from_fields_and_tag(
                         &to_fields(
-                            &(take_n(&mut iter, second.try_into()?)
+                            &(take_n(&mut iter, length.try_into()?)
                                 .ok_or("")
                                 .map_err(|_| anyhow!("less values than expected")))?,
                         ),
-                        first,
+                        protocol_tag,
                     )?);
                 } else {
                     break;
@@ -408,6 +419,7 @@ pub trait Protostones {
     fn encipher(&self) -> Result<Vec<u128>>;
 }
 
+/// returns the values in a LEB encoded stream
 pub fn encode_varint_list(values: &Vec<u128>) -> Vec<u8> {
     let mut result = Vec::<u8>::new();
     for value in values {
@@ -456,4 +468,51 @@ impl Protostones for Vec<Protostone> {
         )?;
         Ok(())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn print_u128_vec_to_bytes(vec: Vec<u128>) {
+        let bytes: Vec<u8> = vec
+            .iter()
+            .flat_map(|&num| num.to_le_bytes()) // Convert each u128 to little-endian bytes
+            .collect();
+
+        println!("{:?}", bytes);
+    }
+
+    // use wasm_bindgen_test::wasm_bindgen_test;
+
+    // #[wasm_bindgen_test]
+    #[test]
+    fn test_protostone_encipher_burn() {
+        let protostones = vec![Protostone {
+            burn: Some(0u32),
+            edicts: vec![],
+            pointer: Some(3),
+            refund: None,
+            from: None,
+            protocol_tag: 1,
+            message: vec![],
+        }];
+
+        let protostone_enciphered = protostones.encipher().unwrap();
+
+        print_u128_vec_to_bytes(protostone_enciphered.clone());
+
+        let protostone_decipered = Protostone::decipher(&protostone_enciphered).unwrap()[0].clone();
+
+        assert_eq!(protostones[0], protostone_decipered);
+    }
+    // Protostone {
+    //     message: vec![1u8],
+    //     pointer: Some(0),
+    //     refund: Some(0),
+    //     edicts: vec![],
+    //     from: None,
+    //     burn: None,
+    //     protocol_tag: 1,
+    // },
 }

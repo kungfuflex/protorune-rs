@@ -29,7 +29,7 @@ impl ByteUtils for u128 {
     // Downside is we miss out on 6 bits of storage before we have to push another tag
     fn snap_to_15_bytes(self) -> Vec<u8> {
         let mut ar: Vec<u8> = (self.to_le_bytes()).try_into().unwrap();
-        ar.drain(0..1);
+        ar.pop();
         ar
     }
 
