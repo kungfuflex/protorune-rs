@@ -11,15 +11,12 @@ impl ByteUtils for u128 {
     // been labeled as a cenotaph for exceeding the max size of a runestone varint.
     fn to_aligned_bytes(self) -> Vec<u8> {
         let mut ar: Vec<u8> = (self.to_le_bytes()).try_into().unwrap();
-        let mut end = 0;
-        for (_i, v) in ar.iter().enumerate() {
-            if *v != 0 {
-                break;
+        while let Some(&last) = ar.last() {
+            if last != 0 {
+                break; // Stop if we encounter a non-zero byte
             }
-            end = end + 1;
+            ar.pop(); // Remove the last element if it's zero
         }
-
-        ar.drain(0..end);
         ar
     }
 
