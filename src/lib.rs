@@ -2,6 +2,7 @@ use crate::balance_sheet::BalanceSheet;
 use crate::message::MessageContext;
 use crate::protostone::ProtostoneEdict;
 use crate::utils::consensus_encode;
+use crate::tables::{RuneTable};
 use anyhow::{anyhow, Ok, Result};
 use balance_sheet::ProtoruneRuneId;
 use bitcoin::blockdata::block::Block;
@@ -553,6 +554,18 @@ impl Protorune {
         atomic.commit();
         Ok(())
     }
+    pub fn save_balances(atomic: &mut AtomicPointer, table: &RuneTable, tx: &Transaction, map: &HashMap<u32, BalanceSheet>) -> Result<()> {
+      for i in 0..tx.output.len() - 1 {
+        map.get(&(i as u32)).map(|v| v.clone()).unwrap_or_else(|| BalanceSheet::default()).save(&mut atomic.derive(&table.OUTPOINT_TO_RUNES.select(&consensus_encode(&OutPoint {
+          txid: tx.txid(),
+          vout: i as u32
+        })?)), false);
+      }
+      if map.contains_key(&u32::MAX) {
+        map.get(&u32::MAX).map(|v| v.clone()).unwrap_or_else(|| BalanceSheet::default()).save(&mut atomic.derive(&table.RUNTIME_BALANCE), false);
+      }
+      Ok(())
+    }
 
     pub fn index_protostones<T: MessageContext>(
         atomic: &mut AtomicPointer,
@@ -635,6 +648,7 @@ impl Protorune {
                     Ok(())
                 })
                 .collect::<Result<()>>()?;
+          Self::save_balances(atomic, &table, tx, &mut proto_balances_by_output)?;
         }
         Ok(())
     }
