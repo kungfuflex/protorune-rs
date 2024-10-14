@@ -462,6 +462,7 @@ impl Protostones for Vec<Protostone> {
         default_output: u32,
         txid: Txid,
     ) -> Result<()> {
+        println!("processing burns");
         let mut burns = self.burns()?;
         burns.process(
             runestone,

@@ -1,8 +1,8 @@
 use crate::balance_sheet::BalanceSheet;
 use crate::message::MessageContext;
 use crate::protostone::ProtostoneEdict;
+use crate::tables::RuneTable;
 use crate::utils::consensus_encode;
-use crate::tables::{RuneTable};
 use anyhow::{anyhow, Ok, Result};
 use balance_sheet::ProtoruneRuneId;
 use bitcoin::blockdata::block::Block;
@@ -554,17 +554,33 @@ impl Protorune {
         atomic.commit();
         Ok(())
     }
-    pub fn save_balances(atomic: &mut AtomicPointer, table: &RuneTable, tx: &Transaction, map: &HashMap<u32, BalanceSheet>) -> Result<()> {
-      for i in 0..tx.output.len() - 1 {
-        map.get(&(i as u32)).map(|v| v.clone()).unwrap_or_else(|| BalanceSheet::default()).save(&mut atomic.derive(&table.OUTPOINT_TO_RUNES.select(&consensus_encode(&OutPoint {
-          txid: tx.txid(),
-          vout: i as u32
-        })?)), false);
-      }
-      if map.contains_key(&u32::MAX) {
-        map.get(&u32::MAX).map(|v| v.clone()).unwrap_or_else(|| BalanceSheet::default()).save(&mut atomic.derive(&table.RUNTIME_BALANCE), false);
-      }
-      Ok(())
+    pub fn save_balances(
+        atomic: &mut AtomicPointer,
+        table: &RuneTable,
+        tx: &Transaction,
+        map: &HashMap<u32, BalanceSheet>,
+    ) -> Result<()> {
+        for i in 0..tx.output.len() - 1 {
+            map.get(&(i as u32))
+                .map(|v| v.clone())
+                .unwrap_or_else(|| BalanceSheet::default())
+                .save(
+                    &mut atomic.derive(&table.OUTPOINT_TO_RUNES.select(&consensus_encode(
+                        &OutPoint {
+                            txid: tx.txid(),
+                            vout: i as u32,
+                        },
+                    )?)),
+                    false,
+                );
+        }
+        if map.contains_key(&u32::MAX) {
+            map.get(&u32::MAX)
+                .map(|v| v.clone())
+                .unwrap_or_else(|| BalanceSheet::default())
+                .save(&mut atomic.derive(&table.RUNTIME_BALANCE), false);
+        }
+        Ok(())
     }
 
     pub fn index_protostones<T: MessageContext>(
@@ -579,6 +595,7 @@ impl Protorune {
         unallocated_to: u32,
     ) -> Result<()> {
         let protostones = Protostone::from_runestone(runestone)?;
+        println!("protostones {}", protostones.len());
         if protostones.len() != 0 {
             let mut proto_balances_by_output = HashMap::<u32, BalanceSheet>::new();
             let table = tables::RuneTable::for_protocol(T::protocol_tag());
@@ -596,6 +613,7 @@ impl Protorune {
                 })
                 .collect::<Result<Vec<BalanceSheet>>>()?;
             let mut balance_sheet = BalanceSheet::concat(sheets);
+            println!("about to process burns");
             protostones.process_burns(
                 runestone,
                 runestone_output_index,
@@ -603,6 +621,7 @@ impl Protorune {
                 unallocated_to,
                 tx.txid(),
             )?;
+            println!("done process burns");
             protostones
                 .into_iter()
                 .enumerate()
@@ -648,7 +667,7 @@ impl Protorune {
                     Ok(())
                 })
                 .collect::<Result<()>>()?;
-          Self::save_balances(atomic, &table, tx, &mut proto_balances_by_output)?;
+            Self::save_balances(atomic, &table, tx, &mut proto_balances_by_output)?;
         }
         Ok(())
     }
