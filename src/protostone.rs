@@ -519,12 +519,12 @@ mod tests {
     #[test]
     fn test_protostone_encipher_burn() {
         let protostones = vec![Protostone {
-            burn: Some(0u32),
+            burn: Some(1u32),
             edicts: vec![],
             pointer: Some(3),
             refund: None,
             from: None,
-            protocol_tag: 1,
+            protocol_tag: 13, // must be 13 when protoburn
             message: vec![],
         }];
 
@@ -568,7 +568,7 @@ mod tests {
     #[test]
     fn test_protostone_encipher_multiple_u128() {
         let protostones = vec![Protostone {
-            burn: Some(0u32),
+            burn: None,
             edicts: vec![],
             pointer: Some(3),
             refund: None,
@@ -590,13 +590,13 @@ mod tests {
     fn test_protostone_encipher_multiple_protostones() {
         let protostones = vec![
             Protostone {
-                burn: Some(0u32),
+                burn: Some(1u32),
                 edicts: vec![],
                 pointer: Some(3),
                 refund: None,
                 from: None,
-                protocol_tag: 1,
-                message: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0, 0, 0],
+                protocol_tag: 13,
+                message: vec![],
             },
             Protostone {
                 burn: Some(1u32),
