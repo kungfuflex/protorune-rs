@@ -92,11 +92,11 @@ impl From<Arc<Vec<u8>>> for ProtoruneRuneId {
         let bytes: &[u8] = arc_bytes.as_ref();
 
         // Extract the u32 and u64 from the byte slice
-        let block = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
-        let tx = u32::from_le_bytes(bytes[8..12].try_into().unwrap());
+        let block = u128::from_le_bytes((&bytes[0..16]).try_into().unwrap());
+        let tx = u128::from_le_bytes((&bytes[16..32]).try_into().unwrap());
 
         // Return the deserialized MyStruct
-        (RuneId { block, tx }).into()
+        ProtoruneRuneId { block, tx }
     }
 }
 

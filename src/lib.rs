@@ -497,7 +497,7 @@ impl Protorune {
                     block,
                     runestone_output_index,
                 ) {
-                    Err(_) => {
+                    Err(e) => {
                         atomic.rollback();
                     }
                     _ => {
@@ -636,8 +636,6 @@ impl Protorune {
                 })
                 .collect::<Result<Vec<BalanceSheet>>>()?;
             let mut balance_sheet = BalanceSheet::concat(sheets);
-            println!("about to process burns");
-            println!("output index {}", runestone_output_index);
             protostones.process_burns(
                 runestone,
                 runestone_output_index,
@@ -645,7 +643,6 @@ impl Protorune {
                 unallocated_to,
                 tx.txid(),
             )?;
-            println!("done process burns");
             protostones
                 .into_iter()
                 .enumerate()

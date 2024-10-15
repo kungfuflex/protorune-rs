@@ -228,7 +228,6 @@ mod tests {
                 .select(&consensus_encode(&outpoint).unwrap()),
         );
         let stored_balance = sheet.get(&protorune_id);
-        println!("stored balance: {}", stored_balance);
         assert_eq!(1000 as u128, stored_balance);
     }
 
