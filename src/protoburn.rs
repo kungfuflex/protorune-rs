@@ -4,7 +4,7 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 use bitcoin::{OutPoint, Txid};
-use metashrew::index_pointer::KeyValuePointer;
+use metashrew::index_pointer::{AtomicPointer, KeyValuePointer};
 use metashrew::{println, stdout};
 use std::fmt::Write;
 use std::{
@@ -26,34 +26,31 @@ pub struct Protoburn {
 }
 
 impl Protoburn {
-    pub fn process(&mut self, balance_sheet: BalanceSheet, outpoint: OutPoint) -> Result<()> {
+    pub fn process(&mut self, atomic: &mut AtomicPointer, balance_sheet: BalanceSheet, proto_balances_by_output: &mut HashMap<u32, BalanceSheet>, outpoint: OutPoint) -> Result<()> {
         let table = RuneTable::for_protocol(self.tag.ok_or(anyhow!("no tag found"))?);
         for (rune, _balance) in balance_sheet.clone().balances.into_iter() {
             let name = RUNES.RUNE_ID_TO_ETCHING.select(&rune.into()).get();
             let runeid: Arc<Vec<u8>> = rune.into();
-            table.RUNE_ID_TO_ETCHING.select(&runeid).set(name.clone());
-            table.ETCHING_TO_RUNE_ID.select(&name).set(runeid);
-            table
+            atomic.derive(&table.RUNE_ID_TO_ETCHING.select(&runeid)).set(name.clone());
+            atomic.derive(&table.ETCHING_TO_RUNE_ID.select(&name)).set(runeid);
+            atomic.derive(&table
                 .SPACERS
-                .select(&name)
+                .select(&name))
                 .set(RUNES.SPACERS.select(&name).get());
-            table
+            atomic.derive(&table
                 .DIVISIBILITY
-                .select(&name)
+                .select(&name))
                 .set(RUNES.DIVISIBILITY.select(&name).get());
-            table
+            atomic.derive(&table
                 .SYMBOL
-                .select(&name)
+                .select(&name))
                 .set(RUNES.SYMBOL.select(&name).get());
-            table.ETCHINGS.append(name);
-            balance_sheet.save_index(
-                &rune,
-                &table
-                    .OUTPOINT_TO_RUNES
-                    .select(&consensus_encode(&outpoint)?),
-                false,
-            )?
+            atomic.derive(&table.ETCHINGS).append(name);
         }
+        if !proto_balances_by_output.contains_key(&outpoint.vout) {
+          proto_balances_by_output.insert(outpoint.vout, BalanceSheet::default());
+        }
+        balance_sheet.pipe(proto_balances_by_output.get_mut(&outpoint.vout).unwrap());
         Ok(())
     }
 }
@@ -65,9 +62,11 @@ pub trait Protoburns<T>: Deref<Target = [T]> {
     }
     fn process(
         &mut self,
+        atomic: &mut AtomicPointer, 
         runestone: &Runestone,
         runestone_output_index: u32,
         balances_by_output: &HashMap<u32, BalanceSheet>,
+        proto_balances_by_output: &mut HashMap<u32, BalanceSheet>,
         default_output: u32,
         txid: Txid,
     ) -> Result<()>;
@@ -76,9 +75,11 @@ pub trait Protoburns<T>: Deref<Target = [T]> {
 impl Protoburns<Protoburn> for Vec<Protoburn> {
     fn process(
         &mut self,
+        atomic: &mut AtomicPointer,
         runestone: &Runestone,
         runestone_output_index: u32,
         balances_by_output: &HashMap<u32, BalanceSheet>,
+        proto_balances_by_output: &mut HashMap<u32, BalanceSheet>,
         default_output: u32,
         txid: Txid,
     ) -> Result<()> {
@@ -152,8 +153,10 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
         for (i, burn) in self.into_iter().enumerate() {
             let sheet = burn_sheets[i].clone();
             burn.process(
+                atomic,
                 sheet,
-                OutPoint::new(txid, burn.pointer.ok_or(anyhow!("no vout on protoburn"))?),
+                proto_balances_by_output,
+                OutPoint::new(txid, burn.pointer.ok_or(anyhow!("no vout on protoburn"))?)
             )?;
         }
         Ok(())

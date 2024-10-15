@@ -10,7 +10,7 @@ use bitcoin::hashes::Hash;
 use bitcoin::script::Instruction;
 use bitcoin::{opcodes, Address, OutPoint, ScriptBuf, Transaction, TxOut};
 use metashrew::compat::{to_arraybuffer_layout, to_ptr};
-use metashrew::index_pointer::{AtomicPointer, KeyValuePointer};
+use metashrew::index_pointer::{IndexPointer, AtomicPointer, KeyValuePointer};
 use metashrew::utils::consume_to_end;
 use metashrew::{flush, input, println, stdout};
 use ordinals::{Artifact, Runestone};
@@ -440,7 +440,6 @@ impl Protorune {
                 .derive(&tables::HEIGHT_TO_RUNES.select_value(height))
                 .append(Arc::new(_name.as_bytes().to_vec()));
         }
-        atomic.commit();
         Ok(())
     }
 
@@ -585,10 +584,10 @@ impl Protorune {
         map: &HashMap<u32, BalanceSheet>,
     ) -> Result<()> {
         for i in 0..tx.output.len() - 1 {
-            map.get(&(i as u32))
+            let sheet = map.get(&(i as u32))
                 .map(|v| v.clone())
-                .unwrap_or_else(|| BalanceSheet::default())
-                .save(
+                .unwrap_or_else(|| BalanceSheet::default());
+            sheet.save(
                     &mut atomic.derive(&table.OUTPOINT_TO_RUNES.select(&consensus_encode(
                         &OutPoint {
                             txid: tx.txid(),
@@ -637,9 +636,11 @@ impl Protorune {
                 .collect::<Result<Vec<BalanceSheet>>>()?;
             let mut balance_sheet = BalanceSheet::concat(sheets);
             protostones.process_burns(
+                &mut atomic.derive(&IndexPointer::default()),
                 runestone,
                 runestone_output_index,
                 balances_by_output,
+                &mut proto_balances_by_output,
                 unallocated_to,
                 tx.txid(),
             )?;
@@ -674,7 +675,7 @@ impl Protorune {
                     }
                     if stone.is_message() {
                         stone.process_message::<T>(
-                            atomic,
+                            &mut atomic.derive(&IndexPointer::default()),
                             tx,
                             txindex,
                             block,
@@ -688,7 +689,7 @@ impl Protorune {
                     Ok(())
                 })
                 .collect::<Result<()>>()?;
-            Self::save_balances(atomic, &table, tx, &mut proto_balances_by_output)?;
+            Self::save_balances(&mut atomic.derive(&IndexPointer::default()), &table, tx, &mut proto_balances_by_output)?;
         }
         Ok(())
     }

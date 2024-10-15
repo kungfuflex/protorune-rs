@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
 use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
+use metashrew::{stdio::{stdout}, println};
 use anyhow::{anyhow, Result};
 
+use std::fmt::Write;
 #[derive(Clone, Copy, Default)]
 pub struct RuneTransfer {
     pub id: ProtoruneRuneId,
@@ -51,6 +53,7 @@ impl OutgoingRunes for (Vec<RuneTransfer>, BalanceSheet) {
         initial.debit(&outgoing)?;
         self.1.clone().debit(&initial)?;
         balances_by_output.insert(u32::MAX, self.1.clone());
+        self.1.balances.iter().for_each(|(k, v)| println!("runtime: {}", v));
         balances_by_output.insert(pointer, initial);
         Ok(())
     }

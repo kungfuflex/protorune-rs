@@ -321,7 +321,7 @@ impl Protostone {
             match T::handle(&parcel) {
                 Ok(values) => match values.reconcile(balances_by_output, vout, pointer) {
                     Ok(_) => atomic.commit(),
-                    Err(_) => {
+                    Err(e) => {
                         let sheet = balances_by_output
                             .get(&vout)
                             .map(|v| v.clone())
@@ -329,9 +329,9 @@ impl Protostone {
                         balances_by_output.remove(&vout);
                         if !balances_by_output.contains_key(&refund_pointer) {
                             balances_by_output.insert(refund_pointer, BalanceSheet::default());
-                            sheet.pipe(balances_by_output.get_mut(&refund_pointer).unwrap());
-                            atomic.rollback()
                         }
+                        sheet.pipe(balances_by_output.get_mut(&refund_pointer).unwrap());
+                        atomic.rollback()
                     }
                 },
                 Err(_) => {
@@ -416,9 +416,11 @@ pub trait Protostones {
     fn burns(&self) -> Result<Vec<Protoburn>>;
     fn process_burns(
         &self,
+        atomic: &mut AtomicPointer,
         runestone: &Runestone,
         runestone_output_index: u32,
         balances_by_output: &HashMap<u32, BalanceSheet>,
+        proto_balances_by_output: &mut HashMap<u32, BalanceSheet>,
         default_output: u32,
         txid: Txid,
     ) -> Result<()>;
@@ -458,17 +460,21 @@ impl Protostones for Vec<Protostone> {
     }
     fn process_burns(
         &self,
+        atomic: &mut AtomicPointer,
         runestone: &Runestone,
         runestone_output_index: u32,
         balances_by_output: &HashMap<u32, BalanceSheet>,
+        proto_balances_by_output: &mut HashMap<u32, BalanceSheet>,
         default_output: u32,
         txid: Txid,
     ) -> Result<()> {
         let mut burns = self.burns()?;
         burns.process(
+            atomic,
             runestone,
             runestone_output_index,
             balances_by_output,
+            proto_balances_by_output,
             default_output,
             txid,
         )?;
