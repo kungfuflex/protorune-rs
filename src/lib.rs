@@ -7,7 +7,8 @@ use anyhow::{anyhow, Ok, Result};
 use balance_sheet::ProtoruneRuneId;
 use bitcoin::blockdata::block::Block;
 use bitcoin::hashes::Hash;
-use bitcoin::{Address, OutPoint, ScriptBuf, Transaction, TxOut};
+use bitcoin::script::Instruction;
+use bitcoin::{opcodes, Address, OutPoint, ScriptBuf, Transaction, TxOut};
 use metashrew::compat::{to_arraybuffer_layout, to_ptr};
 use metashrew::index_pointer::{AtomicPointer, KeyValuePointer};
 use metashrew::utils::consume_to_end;
@@ -135,9 +136,24 @@ impl Protorune {
             .collect::<Result<Vec<BalanceSheet>>>()?;
         let mut balance_sheet = BalanceSheet::concat(sheets);
         let mut balances_by_output = HashMap::<u32, BalanceSheet>::new();
+        let unallocated_to = match runestone.pointer {
+            Some(v) => v,
+            None => default_output(tx),
+        };
         if let Some(etching) = runestone.etching.as_ref() {
-            Self::index_etching(atomic, etching, index, height, &mut balances_by_output)?;
+            Self::index_etching(
+                atomic,
+                etching,
+                index,
+                height,
+                &mut balances_by_output,
+                unallocated_to,
+            )?;
         }
+        println!(
+            "Balance of op return after indexing etching {:?} ",
+            balances_by_output
+        );
         if let Some(mint) = runestone.mint {
             if !mint.to_string().is_empty() {
                 Self::index_mint(&mint.into(), height, &mut balance_sheet)?;
@@ -150,10 +166,6 @@ impl Protorune {
             &mut balance_sheet,
             &tx.output,
         )?;
-        let unallocated_to = match runestone.pointer {
-            Some(v) => v,
-            None => default_output(tx),
-        };
         Self::handle_leftover_runes(&mut balance_sheet, &mut balances_by_output, unallocated_to)?;
         for (vout, sheet) in balances_by_output.clone() {
             let outpoint = OutPoint::new(tx.txid(), vout);
@@ -337,6 +349,7 @@ impl Protorune {
         index: u32,
         height: u64,
         balances_by_output: &mut HashMap<u32, BalanceSheet>,
+        unallocated_to: u32,
     ) -> Result<()> {
         if let Some(name) = etching.rune {
             let _name = field_to_name(&name.0);
@@ -375,7 +388,7 @@ impl Protorune {
                 };
                 let sheet = BalanceSheet::from_pairs(vec![rune], vec![premine]);
                 //.pipe(balance_sheet);
-                balances_by_output.insert(0, sheet);
+                balances_by_output.insert(unallocated_to, sheet);
             }
             if let Some(terms) = etching.terms {
                 if let Some(amount) = terms.amount {
@@ -459,11 +472,28 @@ impl Protorune {
         return Arc::new(rune_id);
     }
 
+    pub fn get_runestone_output_index(transaction: &Transaction) -> Result<u32> {
+        // search transaction outputs for payload
+        for (i, output) in transaction.output.iter().enumerate() {
+            let mut instructions = output.script_pubkey.instructions();
+
+            // Check if the first instruction is OP_RETURN
+            if let Some(std::result::Result::Ok(Instruction::Op(opcodes::all::OP_RETURN))) =
+                instructions.next()
+            {
+                return Ok(i as u32);
+            }
+        }
+
+        // If no matching output is found, return an error
+        Err(anyhow!("did not find a output index"))
+    }
+
     pub fn index_unspendables<T: MessageContext>(block: &Block, height: u64) -> Result<()> {
         for (index, tx) in block.txdata.iter().enumerate() {
             if let Some(Artifact::Runestone(ref runestone)) = Runestone::decipher(tx) {
                 let mut atomic = AtomicPointer::default();
-                let runestone_output_index: u32 = 42;
+                let runestone_output_index: u32 = Self::get_runestone_output_index(tx)?;
                 match Self::index_runestone::<T>(
                     &mut atomic,
                     tx,
@@ -614,6 +644,7 @@ impl Protorune {
                 .collect::<Result<Vec<BalanceSheet>>>()?;
             let mut balance_sheet = BalanceSheet::concat(sheets);
             println!("about to process burns");
+            println!("output index {}", runestone_output_index);
             protostones.process_burns(
                 runestone,
                 runestone_output_index,

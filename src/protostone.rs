@@ -9,8 +9,10 @@ use crate::{
 use anyhow::{anyhow, Result};
 use bitcoin::{Block, Transaction, Txid};
 use metashrew::index_pointer::{AtomicPointer, IndexPointer};
+use metashrew::{println, stdout};
 use ordinals::{runestone::tag::Tag, varint, Edict, RuneId, Runestone};
 use std::collections::{HashMap, HashSet};
+use std::fmt::Write;
 
 static mut PROTOCOLS: Option<HashSet<u128>> = None;
 
@@ -464,6 +466,7 @@ impl Protostones for Vec<Protostone> {
     ) -> Result<()> {
         println!("processing burns");
         let mut burns = self.burns()?;
+        println!("num burns {}", burns.len());
         burns.process(
             runestone,
             runestone_output_index,
@@ -507,16 +510,6 @@ mod tests {
     ///
     use super::*;
 
-    fn print_u128_bytes(vec: Vec<u128>) {
-        for num in vec {
-            let bytes = num.to_le_bytes(); // Convert each u128 to little-endian bytes
-            for byte in bytes.iter() {
-                println!("{}", byte);
-            }
-            println!("--- End of u128 ---"); // Separator between u128 values
-        }
-    }
-
     #[test]
     fn test_protostone_encipher_burn() {
         let protostones = vec![Protostone {
@@ -530,8 +523,6 @@ mod tests {
         }];
 
         let protostone_enciphered = protostones.encipher().unwrap();
-
-        print_u128_bytes(protostone_enciphered.clone());
 
         let protostone_decipered = Protostone::decipher(&protostone_enciphered).unwrap();
 
@@ -559,8 +550,6 @@ mod tests {
 
         let protostone_enciphered = protostones.encipher().unwrap();
 
-        print_u128_bytes(protostone_enciphered.clone());
-
         let protostone_decipered = Protostone::decipher(&protostone_enciphered).unwrap();
 
         assert_eq!(protostones, protostone_decipered);
@@ -579,8 +568,6 @@ mod tests {
         }];
 
         let protostone_enciphered = protostones.encipher().unwrap();
-
-        print_u128_bytes(protostone_enciphered.clone());
 
         let protostone_decipered = Protostone::decipher(&protostone_enciphered).unwrap();
 
@@ -611,8 +598,6 @@ mod tests {
         ];
 
         let protostone_enciphered = protostones.encipher().unwrap();
-
-        print_u128_bytes(protostone_enciphered.clone());
 
         let protostone_decipered = Protostone::decipher(&protostone_enciphered).unwrap();
 

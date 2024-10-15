@@ -1,5 +1,6 @@
 use crate::rune_transfer::RuneTransfer;
 use anyhow::{anyhow, Result};
+use fmt::Write;
 #[allow(unused_imports)]
 use metashrew::{
     index_pointer::{IndexPointer, KeyValuePointer},
@@ -209,6 +210,7 @@ impl BalanceSheet {
         let balances_ptr = ptr.keyword("/balances");
         let balance = self.balances.get(rune).ok_or(anyhow!("no balance found"))?;
         if *balance != 0u128 && !is_cenotaph {
+            println!("saving balances {}", balance);
             runes_ptr.append((*rune).into());
             balances_ptr.append_value::<u128>(*balance);
         }

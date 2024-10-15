@@ -5,6 +5,8 @@ use crate::{
 use anyhow::{anyhow, Result};
 use bitcoin::{OutPoint, Txid};
 use metashrew::index_pointer::KeyValuePointer;
+use metashrew::{println, stdout};
+use std::fmt::Write;
 use std::{
     cmp::min,
     collections::{HashMap, HashSet},
@@ -25,9 +27,11 @@ pub struct Protoburn {
 
 impl Protoburn {
     pub fn process(&mut self, balance_sheet: BalanceSheet, outpoint: OutPoint) -> Result<()> {
+        println!("incrementing sheet for protocol {}", self.tag.unwrap());
         let table = RuneTable::for_protocol(self.tag.ok_or(anyhow!("no tag found"))?);
         for (rune, _balance) in balance_sheet.clone().balances.into_iter() {
             let name = RUNES.RUNE_ID_TO_ETCHING.select(&rune.into()).get();
+            println!("name length {}", name.len());
             let runeid: Arc<Vec<u8>> = rune.into();
             table.RUNE_ID_TO_ETCHING.select(&runeid).set(name.clone());
             table.ETCHING_TO_RUNE_ID.select(&name).set(runeid);
@@ -44,6 +48,11 @@ impl Protoburn {
                 .select(&name)
                 .set(RUNES.SYMBOL.select(&name).get());
             table.ETCHINGS.append(name);
+            println!(
+                "saving balance sheet {} saving rune {}",
+                balance_sheet.inspect(),
+                rune
+            );
             balance_sheet.save_index(
                 &rune,
                 &table
@@ -85,6 +94,7 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
             let sheet = balances_by_output
                 .get(&runestone_output_index)
                 .ok_or(anyhow!("cannot find balance sheet"))?;
+            println!("piping {} into rbs", sheet.inspect());
             sheet.pipe(&mut runestone_balance_sheet);
         }
         //TODO: pipe stuff into runestone_balance_sheet
@@ -101,6 +111,10 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
                 for j in from {
                     pull_set.insert(j, true);
                     if edicts[j as usize].output == runestone_output_index {
+                        println!(
+                            "edict {} is targeting the burn at index {}",
+                            j, runestone_output_index
+                        );
                         let rune = edicts[j as usize].id;
                         let remaining = runestone_balance_sheet.get(&rune.into());
                         let to_apply = min(remaining, edicts[j as usize].amount);
@@ -109,6 +123,7 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
                         }
                         runestone_balance_sheet.decrease(&rune.clone().into(), to_apply);
                         burn_sheets[i].increase(&rune.into(), to_apply);
+                        println!("applying amount {}", to_apply);
                     }
                 }
             }
@@ -131,8 +146,17 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
                 burn_sheets[cycle as usize].increase(&rune.into(), to_apply);
             }
         }
+
+        // the default output of the runestone (all leftover runes, or the mint runes go to this output)
+        // equals the runestone OP_RETURN. This is a valid protoburn
+        println!(
+            "default output ={}  runestone_output_index={}",
+            default_output, runestone_output_index
+        );
         if runestone_output_index == default_output {
+            println!("default output == runestoneoutptutodnex");
             for rune in runestone_balance_sheet.clone().balances.keys() {
+                println!("got rune in bs {}", rune);
                 let cycle = burn_cycles.peek(rune)?;
                 let to_apply = runestone_balance_sheet.get(rune);
                 if to_apply == 0 {
@@ -141,11 +165,13 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
                 burn_cycles.next(rune)?;
                 runestone_balance_sheet.decrease(rune, to_apply);
                 burn_sheets[cycle as usize].increase(rune, to_apply);
+                println!("burning {}", to_apply);
             }
         }
 
         for (i, burn) in self.into_iter().enumerate() {
             let sheet = burn_sheets[i].clone();
+            println!("burn sheet {}", sheet.inspect());
             burn.process(
                 sheet,
                 OutPoint::new(txid, burn.pointer.ok_or(anyhow!("no vout on protoburn"))?),
