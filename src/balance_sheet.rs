@@ -210,7 +210,6 @@ impl BalanceSheet {
         let balances_ptr = ptr.keyword("/balances");
         let balance = self.balances.get(rune).ok_or(anyhow!("no balance found"))?;
         if *balance != 0u128 && !is_cenotaph {
-            println!("saving balances {}", balance);
             runes_ptr.append((*rune).into());
             balances_ptr.append_value::<u128>(*balance);
         }
@@ -240,5 +239,21 @@ impl From<Vec<RuneTransfer>> for BalanceSheet {
                 v.into_iter().map(|v| (v.id, v.value)),
             ),
         }
+    }
+}
+
+pub trait IntoString {
+    fn to_str(&self) -> String;
+}
+
+impl IntoString for Vec<u8> {
+    fn to_str(&self) -> String {
+        let mut str: String = "".to_string();
+        for i in self {
+            str = str + i.to_string().as_str() + ",";
+            ()
+        }
+
+        str
     }
 }

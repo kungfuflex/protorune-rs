@@ -27,11 +27,9 @@ pub struct Protoburn {
 
 impl Protoburn {
     pub fn process(&mut self, balance_sheet: BalanceSheet, outpoint: OutPoint) -> Result<()> {
-        println!("incrementing sheet for protocol {}", self.tag.unwrap());
         let table = RuneTable::for_protocol(self.tag.ok_or(anyhow!("no tag found"))?);
         for (rune, _balance) in balance_sheet.clone().balances.into_iter() {
             let name = RUNES.RUNE_ID_TO_ETCHING.select(&rune.into()).get();
-            println!("name length {}", name.len());
             let runeid: Arc<Vec<u8>> = rune.into();
             table.RUNE_ID_TO_ETCHING.select(&runeid).set(name.clone());
             table.ETCHING_TO_RUNE_ID.select(&name).set(runeid);
@@ -48,11 +46,6 @@ impl Protoburn {
                 .select(&name)
                 .set(RUNES.SYMBOL.select(&name).get());
             table.ETCHINGS.append(name);
-            println!(
-                "saving balance sheet {} saving rune {}",
-                balance_sheet.inspect(),
-                rune
-            );
             balance_sheet.save_index(
                 &rune,
                 &table
@@ -94,7 +87,6 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
             let sheet = balances_by_output
                 .get(&runestone_output_index)
                 .ok_or(anyhow!("cannot find balance sheet"))?;
-            println!("piping {} into rbs", sheet.inspect());
             sheet.pipe(&mut runestone_balance_sheet);
         }
         //TODO: pipe stuff into runestone_balance_sheet

@@ -85,7 +85,6 @@ pub fn runesbyaddress() -> i32 {
     let mut data: Cursor<Vec<u8>> = Cursor::new(input());
     let result: WalletResponse =
         view::runes_by_address(&consume_to_end(&mut data).unwrap()).unwrap();
-    println!("{:?}", result);
     return to_ptr(&mut to_arraybuffer_layout(Arc::new(
         result.write_to_bytes().unwrap(),
     ))) + 4;
@@ -96,7 +95,6 @@ pub fn protorunesbyaddress() -> i32 {
     let mut data: Cursor<Vec<u8>> = Cursor::new(input());
     let result: WalletResponse =
         view::protorunes_by_address(&consume_to_end(&mut data).unwrap()).unwrap();
-    println!("{:?}", result);
     return to_ptr(&mut to_arraybuffer_layout(Arc::new(
         result.write_to_bytes().unwrap(),
     ))) + 4;
@@ -150,10 +148,6 @@ impl Protorune {
                 unallocated_to,
             )?;
         }
-        println!(
-            "Balance of op return after indexing etching {:?} ",
-            balances_by_output
-        );
         if let Some(mint) = runestone.mint {
             if !mint.to_string().is_empty() {
                 Self::index_mint(&mint.into(), height, &mut balance_sheet)?;
@@ -625,7 +619,6 @@ impl Protorune {
         unallocated_to: u32,
     ) -> Result<()> {
         let protostones = Protostone::from_runestone(runestone)?;
-        println!("protostones {}", protostones.len());
         if protostones.len() != 0 {
             let mut proto_balances_by_output = HashMap::<u32, BalanceSheet>::new();
             let table = tables::RuneTable::for_protocol(T::protocol_tag());

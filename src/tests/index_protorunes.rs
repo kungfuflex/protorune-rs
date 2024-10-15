@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
+    use crate::balance_sheet::{BalanceSheet, IntoString, ProtoruneRuneId};
     use crate::message::{MessageContext, MessageContextParcel};
     use crate::protostone::{Protostone, Protostones};
     use crate::rune_transfer::RuneTransfer;
@@ -139,10 +139,6 @@ mod tests {
             txid: test_block.txdata[1].txid(),
             vout: 0,
         };
-        println!(
-            "consensus encode output: {:?}",
-            consensus_encode(&outpoint_address).unwrap()
-        );
         // check runes balance
         let sheet = BalanceSheet::load(
             &tables::RUNES
@@ -150,21 +146,28 @@ mod tests {
                 .select(&consensus_encode(&outpoint_address).unwrap()),
         );
 
+        println!("loading protorune sheet");
         let protorunes_sheet = BalanceSheet::load(
             &tables::RuneTable::for_protocol(protocol_id.into())
                 .OUTPOINT_TO_RUNES
                 .select(&consensus_encode(&outpoint_address).unwrap()),
         );
 
-        print_cache();
+        // print_cache();
 
         let protorune_id = ProtoruneRuneId {
             block: block_height as u128,
             tx: 1,
         };
+        let v: Vec<u8> = protorune_id.into();
+        println!("{}", v.to_str());
         let stored_balance_address = sheet.get(&protorune_id);
         assert_eq!(stored_balance_address, 0);
 
+        for (k, v) in protorunes_sheet.balances.clone().into_iter() {
+            let ar: Vec<u8> = k.into();
+            println!("{}: {}", ar.to_str(), v);
+        }
         let stored_protorune_balance = protorunes_sheet.get(&protorune_id);
         assert_eq!(stored_protorune_balance, 1000);
     }
