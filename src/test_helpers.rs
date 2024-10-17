@@ -76,6 +76,10 @@ pub fn serialize_block(block: &Block) -> [u8; 32] {
 }
 
 pub fn create_test_transaction() -> Transaction {
+    create_test_transaction_with_witness(vec![])
+}
+
+pub fn create_test_transaction_with_witness(script: Vec<u8>) -> Transaction {
     let previous_output = OutPoint {
         txid: bitcoin::Txid::from_str(
             "0000000000000000000000000000000000000000000000000000000000000000",
@@ -85,12 +89,15 @@ pub fn create_test_transaction() -> Transaction {
     };
     let input_script = ScriptBuf::new();
 
+    let mut witness = Witness::new();
+    witness.push(&script);
+
     // Create a transaction input
     let txin = TxIn {
         previous_output,
         script_sig: input_script,
         sequence: Sequence::MAX,
-        witness: Witness::new(),
+        witness,
     };
 
     let address_str = "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu";
@@ -320,10 +327,7 @@ pub fn create_block_with_txs(txdata: Vec<Transaction>) -> Block {
     };
 
     // Create the block with the coinbase transaction
-    Block {
-        header,
-        txdata: txdata,
-    }
+    Block { header, txdata }
 }
 
 pub fn create_block_with_sample_tx() -> Block {
