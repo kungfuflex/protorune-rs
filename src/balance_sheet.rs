@@ -1,6 +1,5 @@
 use crate::rune_transfer::RuneTransfer;
 use anyhow::{anyhow, Result};
-use fmt::Write;
 #[allow(unused_imports)]
 use metashrew::{
     index_pointer::{IndexPointer, KeyValuePointer},

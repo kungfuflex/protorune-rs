@@ -5,9 +5,13 @@ edition = "2021"
 description = "protorunes support libs for Rust sources"
 license = "MIT"
 repository = "https://github.com/kungfuflex/protorune-rs"
+resolver = "2"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+
+[features]
+test_utils = []
 
 [workspace]
 members = [".", "crates/*"]
@@ -28,9 +32,12 @@ serde_json = "1.0.128"
 protobuf = "3.6.0"
 
 [dev-dependencies]
-metashrew = { git = "https://github.com/sandshrewmetaprotocols/metashrew-rs", features = ["mock"] }
+metashrew = { git = "https://github.com/sandshrewmetaprotocols/metashrew-rs", features = [
+    "mock",
+] }
 wasm-bindgen-cli = "0.2.92"
 getrandom = { version = "0.2.15", features = ["js"] }
+protorune = { path = ".", features = ["test_utils"] }
 
 [build-dependencies]
 protobuf-codegen = "3.4.0"

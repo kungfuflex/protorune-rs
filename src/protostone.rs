@@ -9,10 +9,8 @@ use crate::{
 use anyhow::{anyhow, Result};
 use bitcoin::{Block, Transaction, Txid};
 use metashrew::index_pointer::{AtomicPointer, IndexPointer};
-use metashrew::{println, stdout};
 use ordinals::{runestone::tag::Tag, varint, Edict, RuneId, Runestone};
 use std::collections::{HashMap, HashSet};
-use std::fmt::Write;
 
 static mut PROTOCOLS: Option<HashSet<u128>> = None;
 
@@ -210,7 +208,7 @@ pub fn split_bytes(v: &Vec<u8>) -> Vec<u128> {
 
 pub fn join_to_bytes(v: &Vec<u128>) -> Vec<u8> {
     let mut result: Vec<u8> = vec![];
-    for (i, integer) in v.iter().enumerate() {
+    for (_, integer) in v.iter().enumerate() {
         // if i != v.len() - 1 {
         result.extend(<u128 as ByteUtils>::snap_to_15_bytes(*integer))
         // we don't insert a 0 byte for the 16th byte
@@ -321,7 +319,7 @@ impl Protostone {
             match T::handle(&parcel) {
                 Ok(values) => match values.reconcile(balances_by_output, vout, pointer) {
                     Ok(_) => atomic.commit(),
-                    Err(e) => {
+                    Err(_) => {
                         let sheet = balances_by_output
                             .get(&vout)
                             .map(|v| v.clone())

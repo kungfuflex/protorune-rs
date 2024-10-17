@@ -1,25 +1,21 @@
 #[cfg(test)]
 mod tests {
-    use crate::balance_sheet::{BalanceSheet, IntoString, ProtoruneRuneId};
+    use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
     use crate::message::{MessageContext, MessageContextParcel};
     use crate::protostone::{Protostone, Protostones};
     use crate::rune_transfer::RuneTransfer;
-    use crate::tests::helpers::{self, get_address, ADDRESS1};
+    use crate::test_helpers::{self as helpers, get_address, ADDRESS1};
     use crate::utils::consensus_encode;
     use crate::{tables, Protorune};
     use anyhow::Result;
+    use bitcoin::Transaction;
     use bitcoin::{
         address::NetworkChecked, Address, Amount, OutPoint, ScriptBuf, Sequence, TxIn, TxOut,
         Witness,
     };
-    use bitcoin::{block, Transaction};
-    use hex;
+
     use metashrew::{
-        clear, flush, get_cache,
-        index_pointer::{IndexPointer, KeyValuePointer},
-        println,
-        stdio::stdout,
-        utils::format_key,
+        clear, get_cache, index_pointer::KeyValuePointer, println, stdio::stdout, utils::format_key,
     };
     use ordinals::{Etching, Rune, Runestone};
     use std::fmt::Write;
@@ -168,7 +164,7 @@ mod tests {
             block: block_height as u128,
             tx: 1,
         };
-        let v: Vec<u8> = protorune_id.into();
+        // let v: Vec<u8> = protorune_id.into();
         let stored_balance_address = sheet.get(&protorune_id);
         assert_eq!(stored_balance_address, 0);
         let stored_protorune_balance = protorunes_sheet.get(&protorune_id);
@@ -289,8 +285,8 @@ mod tests {
             block: block_height as u128,
             tx: 1,
         };
-        let stored_balance_address = sheet.get(&protorune_id);
-    //    assert_eq!(stored_balance_address, 0);
+        let _stored_balance_address = sheet.get(&protorune_id);
+        //    assert_eq!(stored_balance_address, 0);
 
         let stored_protorune_balance = protorunes_sheet.get(&protorune_id);
         assert_eq!(stored_protorune_balance, 500);

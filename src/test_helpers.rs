@@ -1,4 +1,3 @@
-use anyhow::Error;
 use bitcoin::address::NetworkChecked;
 use bitcoin::blockdata::block::{Block, Header, Version};
 use bitcoin::blockdata::script::ScriptBuf;

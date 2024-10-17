@@ -1,12 +1,7 @@
-use crate::{
-    tables::{RuneTable, RUNES},
-    utils::consensus_encode,
-};
+use crate::tables::{RuneTable, RUNES};
 use anyhow::{anyhow, Result};
 use bitcoin::{OutPoint, Txid};
 use metashrew::index_pointer::{AtomicPointer, KeyValuePointer};
-use metashrew::{println, stdout};
-use std::fmt::Write;
 use std::{
     cmp::min,
     collections::{HashMap, HashSet},

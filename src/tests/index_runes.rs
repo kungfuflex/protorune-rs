@@ -3,35 +3,25 @@ mod tests {
     use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
     use crate::message::MessageContext;
     use crate::proto::protorune::{RunesByHeightRequest, WalletRequest};
-    use crate::protostone::{Protostone, Protostones};
+
     use crate::rune_transfer::RuneTransfer;
-    use crate::tests::helpers;
-    use crate::tests::helpers::{display_list_as_hex, display_vec_as_hex, get_address};
-    use crate::utils::{consensus_encode, field_to_name};
+    use crate::test_helpers as helpers;
+    use crate::test_helpers::{display_list_as_hex, display_vec_as_hex};
+    use crate::utils::consensus_encode;
     use crate::Protorune;
-    use crate::{constants, message::MessageContextParcel, tables, view};
+    use crate::{message::MessageContextParcel, tables, view};
     use anyhow::Result;
-    use bitcoin::address::NetworkChecked;
+
     use bitcoin::consensus::serialize;
     use bitcoin::hashes::Hash;
-    use bitcoin::{
-        blockdata::block::Block, Address, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn,
-        TxOut, Txid, Witness,
-    };
+    use bitcoin::{OutPoint, Txid};
     use hex;
-    use metashrew::byte_view::ByteView;
-    use metashrew::{
-        clear, flush, get_cache,
-        index_pointer::{IndexPointer, KeyValuePointer},
-        println,
-        stdio::stdout,
-        utils::format_key,
-    };
+
+    use metashrew::{clear, index_pointer::KeyValuePointer};
     use ordinals::Rune;
-    use ordinals::{Etching, Runestone};
+
     use protobuf::{Message, SpecialFields};
-    use ruint::uint;
-    use std::fmt::Write;
+
     use std::str::FromStr;
     use std::sync::Arc;
     use wasm_bindgen_test::*;
@@ -78,24 +68,24 @@ mod tests {
         tables::OUTPOINTS_FOR_ADDRESS
             .keyword("bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu")
             .set(Arc::new(Vec::new()));
-        let outpoint: OutPoint = OutPoint {
-            txid: Txid::from_str(
-                "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32",
-            )
-            .unwrap(),
-            vout: 0,
-        };
-        let test_val = tables::OUTPOINT_SPENDABLE_BY
-            .select(&serialize(&outpoint))
-            .get();
-        let addr_str = display_vec_as_hex(test_val.to_vec());
+        // let outpoint: OutPoint = OutPoint {
+        //     txid: Txid::from_str(
+        //         "a440cb400062f14cff5f76fbbd3881c426820171180c67c103a36d12c89fbd32",
+        //     )
+        //     .unwrap(),
+        //     vout: 0,
+        // };
+        // let test_val = tables::OUTPOINT_SPENDABLE_BY
+        //     .select(&serialize(&outpoint))
+        //     .get();
+        // let addr_str = display_vec_as_hex(test_val.to_vec());
         let _addr_str: String = display_vec_as_hex(
             "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"
                 .to_string()
                 .into_bytes(),
         );
 
-        let view_test = view::runes_by_address(
+        let _view_test = view::runes_by_address(
             &"bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"
                 .to_string()
                 .into_bytes(),
@@ -138,7 +128,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn runes_by_address_test() {
         clear();
-        let (test_block, config) = helpers::create_block_with_rune_tx();
+        let (test_block, _) = helpers::create_block_with_rune_tx();
         let _ = Protorune::index_block::<MyMessageContext>(test_block.clone(), 840001);
         let req = (WalletRequest {
             wallet: "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"

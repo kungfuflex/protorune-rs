@@ -10,9 +10,9 @@ use bitcoin::hashes::Hash;
 use bitcoin::script::Instruction;
 use bitcoin::{opcodes, Address, OutPoint, ScriptBuf, Transaction, TxOut};
 use metashrew::compat::{to_arraybuffer_layout, to_ptr};
-use metashrew::index_pointer::{IndexPointer, AtomicPointer, KeyValuePointer};
+use metashrew::index_pointer::{AtomicPointer, IndexPointer, KeyValuePointer};
 use metashrew::utils::consume_to_end;
-use metashrew::{flush, input, println, stdout};
+use metashrew::{flush, input};
 use ordinals::{Artifact, Runestone};
 use ordinals::{Edict, Etching};
 use proto::protorune::{Output, RunesResponse, WalletResponse};
@@ -22,7 +22,6 @@ use protostone::{
     Protostones,
 };
 use std::collections::HashMap;
-use std::fmt::Write;
 use std::io::Cursor;
 use std::ops::Sub;
 use std::sync::Arc;
@@ -37,6 +36,8 @@ pub mod protoburn;
 pub mod protostone;
 pub mod rune_transfer;
 pub mod tables;
+#[cfg(feature = "test_utils")]
+pub mod test_helpers;
 #[cfg(test)]
 pub mod tests;
 pub mod utils;
@@ -496,7 +497,7 @@ impl Protorune {
                     block,
                     runestone_output_index,
                 ) {
-                    Err(e) => {
+                    Err(_) => {
                         atomic.rollback();
                     }
                     _ => {
@@ -584,18 +585,19 @@ impl Protorune {
         map: &HashMap<u32, BalanceSheet>,
     ) -> Result<()> {
         for i in 0..tx.output.len() - 1 {
-            let sheet = map.get(&(i as u32))
+            let sheet = map
+                .get(&(i as u32))
                 .map(|v| v.clone())
                 .unwrap_or_else(|| BalanceSheet::default());
             sheet.save(
-                    &mut atomic.derive(&table.OUTPOINT_TO_RUNES.select(&consensus_encode(
-                        &OutPoint {
-                            txid: tx.txid(),
-                            vout: i as u32,
-                        },
-                    )?)),
-                    false,
-                );
+                &mut atomic.derive(&table.OUTPOINT_TO_RUNES.select(&consensus_encode(
+                    &OutPoint {
+                        txid: tx.txid(),
+                        vout: i as u32,
+                    },
+                )?)),
+                false,
+            );
         }
         if map.contains_key(&u32::MAX) {
             map.get(&u32::MAX)
@@ -689,7 +691,12 @@ impl Protorune {
                     Ok(())
                 })
                 .collect::<Result<()>>()?;
-            Self::save_balances(&mut atomic.derive(&IndexPointer::default()), &table, tx, &mut proto_balances_by_output)?;
+            Self::save_balances(
+                &mut atomic.derive(&IndexPointer::default()),
+                &table,
+                tx,
+                &mut proto_balances_by_output,
+            )?;
         }
         Ok(())
     }

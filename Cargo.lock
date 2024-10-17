@@ -1509,6 +1509,7 @@ dependencies = [
  "protobuf-codegen 3.6.0",
  "protoc-bin-vendored",
  "protoc-rust",
+ "protorune",
  "ruint",
  "serde",
  "serde_json",
