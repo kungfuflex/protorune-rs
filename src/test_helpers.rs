@@ -398,6 +398,62 @@ pub fn create_block_with_rune_transfer(
     return (create_block_with_txs(vec![tx0, tx1]), config);
 }
 
+pub fn create_protostone_encoded_tx(
+    previous_output: OutPoint,
+    protostones: Vec<Protostone>,
+) -> Transaction {
+    let input_script = ScriptBuf::new();
+
+    // Create a transaction input
+    let txin = TxIn {
+        previous_output,
+        script_sig: input_script,
+        sequence: Sequence::MAX,
+        witness: Witness::new(),
+    };
+
+    let address: Address<NetworkChecked> = get_address(&ADDRESS1);
+
+    let script_pubkey = address.script_pubkey();
+
+    let txout = TxOut {
+        value: Amount::from_sat(100_000_000).to_sat(),
+        script_pubkey,
+    };
+
+    let runestone: ScriptBuf = (Runestone {
+        etching: None,
+        pointer: None, // points to the OP_RETURN, so therefore targets the protoburn
+        edicts: vec![Edict {
+            id: RuneId {
+                block: 840000,
+                tx: 1,
+            },
+            amount: 500,
+            output: 2,
+        }],
+        mint: None,
+        protocol: match protostones.encipher() {
+            Ok(v) => Some(v),
+            Err(_) => None,
+        },
+    })
+    .encipher();
+
+    // op return is at output 1
+    let op_return = TxOut {
+        value: Amount::from_sat(0).to_sat(),
+        script_pubkey: runestone,
+    };
+
+    Transaction {
+        version: 1,
+        lock_time: bitcoin::absolute::LockTime::ZERO,
+        input: vec![txin],
+        output: vec![txout, op_return],
+    }
+}
+
 /// Create a protoburn given an input that holds runes
 pub fn create_protoburn_transaction(previous_output: OutPoint, protocol_id: u128) -> Transaction {
     let input_script = ScriptBuf::new();
