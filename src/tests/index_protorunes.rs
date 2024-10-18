@@ -1,11 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
+    use protorune::balance_sheet::{load_sheet};
+    use protorune_support::balance_sheet::{BalanceSheet, ProtoruneRuneId};
     use crate::message::{MessageContext, MessageContextParcel};
     use crate::protostone::{Protostone, Protostones};
-    use crate::rune_transfer::RuneTransfer;
+    use protorune_support::rune_transfer::RuneTransfer;
     use crate::test_helpers::{self as helpers, get_address, ADDRESS1};
-    use crate::utils::consensus_encode;
+    use protorune_support::utils::consensus_encode;
     use crate::{tables, Protorune};
     use anyhow::Result;
     use bitcoin::Transaction;
@@ -15,8 +16,9 @@ mod tests {
     };
 
     use metashrew::{
-        clear, get_cache, index_pointer::KeyValuePointer, println, stdio::stdout, utils::format_key,
+        clear, get_cache, index_pointer::KeyValuePointer, println, stdio::stdout,
     };
+    use metashrew_support::utils::{format_key};
     use ordinals::{Etching, Rune, Runestone};
     use std::fmt::Write;
     use std::str::FromStr;
@@ -89,13 +91,13 @@ mod tests {
             vout: 0,
         };
         // check runes balance
-        let sheet = BalanceSheet::load(
+        let sheet = load_sheet(
             &tables::RUNES
                 .OUTPOINT_TO_RUNES
                 .select(&consensus_encode(&outpoint_address).unwrap()),
         );
 
-        let protorunes_sheet = BalanceSheet::load(
+        let protorunes_sheet = load_sheet(
             &tables::RuneTable::for_protocol(protocol_id.into())
                 .OUTPOINT_TO_RUNES
                 .select(&consensus_encode(&outpoint_address).unwrap()),
@@ -212,13 +214,13 @@ mod tests {
             vout: 0,
         };
         //     // check runes balance
-        let sheet = BalanceSheet::load(
+        let sheet = load_sheet(
             &tables::RUNES
                 .OUTPOINT_TO_RUNES
                 .select(&consensus_encode(&outpoint_address).unwrap()),
         );
 
-        let protorunes_sheet = BalanceSheet::load(
+        let protorunes_sheet = load_sheet(
             &tables::RuneTable::for_protocol(protocol_id.into())
                 .OUTPOINT_TO_RUNES
                 .select(&consensus_encode(&outpoint_address).unwrap()),

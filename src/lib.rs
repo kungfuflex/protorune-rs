@@ -1,22 +1,26 @@
-use crate::balance_sheet::BalanceSheet;
 use crate::message::MessageContext;
 use crate::protostone::ProtostoneEdict;
 use crate::tables::RuneTable;
-use crate::utils::consensus_encode;
+use protorune_support::constants;
 use anyhow::{anyhow, Ok, Result};
-use balance_sheet::ProtoruneRuneId;
 use bitcoin::blockdata::block::Block;
 use bitcoin::hashes::Hash;
 use bitcoin::script::Instruction;
 use bitcoin::{opcodes, Address, OutPoint, ScriptBuf, Transaction, TxOut};
-use metashrew::compat::{to_arraybuffer_layout, to_ptr};
 use metashrew::index_pointer::{AtomicPointer, IndexPointer, KeyValuePointer};
-use metashrew::utils::consume_to_end;
 use metashrew::{flush, input};
+use metashrew_support::{
+    compat::{to_arraybuffer_layout, to_ptr},
+    utils::consume_to_end,
+};
 use ordinals::{Artifact, Runestone};
 use ordinals::{Edict, Etching};
 use proto::protorune::{Output, RunesResponse, WalletResponse};
 use protobuf::{Message, SpecialFields};
+use protorune_support::balance_sheet::{BalanceSheet, ProtoruneRuneId};
+use crate::balance_sheet::{load_sheet, PersistentRecord};
+use protorune_support::utils::consensus_encode;
+use protorune_support::utils::field_to_name;
 use protostone::{
     add_to_indexable_protocols, initialized_protocol_index, into_protostone_edicts, Protostone,
     Protostones,
@@ -25,22 +29,17 @@ use std::collections::HashMap;
 use std::io::Cursor;
 use std::ops::Sub;
 use std::sync::Arc;
-use utils::field_to_name;
 
 pub mod balance_sheet;
-pub mod byte_utils;
-pub mod constants;
 pub mod message;
 pub mod proto;
 pub mod protoburn;
 pub mod protostone;
-pub mod rune_transfer;
 pub mod tables;
 #[cfg(feature = "test_utils")]
 pub mod test_helpers;
 #[cfg(test)]
 pub mod tests;
-pub mod utils;
 pub mod view;
 
 pub struct Protorune(());
@@ -86,9 +85,7 @@ pub fn runesbyaddress() -> i32 {
     let mut data: Cursor<Vec<u8>> = Cursor::new(input());
     let result: WalletResponse =
         view::runes_by_address(&consume_to_end(&mut data).unwrap()).unwrap();
-    return to_ptr(&mut to_arraybuffer_layout(Arc::new(
-        result.write_to_bytes().unwrap(),
-    ))) + 4;
+    to_ptr(&mut to_arraybuffer_layout::<&[u8]>(result.write_to_bytes().unwrap().as_ref())) + 4
 }
 
 #[no_mangle]
@@ -96,18 +93,15 @@ pub fn protorunesbyaddress() -> i32 {
     let mut data: Cursor<Vec<u8>> = Cursor::new(input());
     let result: WalletResponse =
         view::protorunes_by_address(&consume_to_end(&mut data).unwrap()).unwrap();
-    return to_ptr(&mut to_arraybuffer_layout(Arc::new(
-        result.write_to_bytes().unwrap(),
-    ))) + 4;
+    to_ptr(&mut to_arraybuffer_layout::<&[u8]>(&result.write_to_bytes().unwrap())) + 4
 }
 
 #[no_mangle]
 pub fn runesbyheight() -> i32 {
     let mut data: Cursor<Vec<u8>> = Cursor::new(input());
     let result: RunesResponse = view::runes_by_height(&consume_to_end(&mut data).unwrap()).unwrap();
-    return to_ptr(&mut to_arraybuffer_layout(Arc::new(
-        result.write_to_bytes().unwrap(),
-    ))) + 4;
+    let buffer: Vec<u8> = result.write_to_bytes().unwrap();
+    to_ptr(&mut to_arraybuffer_layout::<&[u8]>(buffer.as_ref())) + 4
 }
 
 impl Protorune {
@@ -124,7 +118,7 @@ impl Protorune {
             .input
             .iter()
             .map(|input| {
-                Ok(BalanceSheet::load(
+                Ok(load_sheet(
                     &mut atomic.derive(
                         &tables::RUNES
                             .OUTPOINT_TO_RUNES
@@ -627,7 +621,7 @@ impl Protorune {
                 .input
                 .iter()
                 .map(|input| {
-                    Ok(BalanceSheet::load(
+                    Ok(load_sheet(
                         &mut atomic.derive(
                             &table
                                 .OUTPOINT_TO_RUNES

@@ -1,13 +1,14 @@
 #[cfg(test)]
 mod tests {
-    use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
+    use protorune_support::balance_sheet::{BalanceSheet, ProtoruneRuneId};
+    use protorune::balance_sheet::{load_sheet};
     use crate::message::MessageContext;
     use crate::proto::protorune::{RunesByHeightRequest, WalletRequest};
 
-    use crate::rune_transfer::RuneTransfer;
+    use protorune_support::rune_transfer::RuneTransfer;
     use crate::test_helpers as helpers;
     use crate::test_helpers::{display_list_as_hex, display_vec_as_hex};
-    use crate::utils::consensus_encode;
+    use protorune_support::utils::consensus_encode;
     use crate::Protorune;
     use crate::{message::MessageContextParcel, tables, view};
     use anyhow::Result;
@@ -212,7 +213,7 @@ mod tests {
             block: config.rune_etch_height as u128,
             tx: config.rune_etch_vout as u128,
         };
-        let sheet = BalanceSheet::load(
+        let sheet = load_sheet(
             &tables::RUNES
                 .OUTPOINT_TO_RUNES
                 .select(&consensus_encode(&outpoint).unwrap()),
@@ -250,7 +251,7 @@ mod tests {
             block: config.rune_etch_height as u128,
             tx: config.rune_etch_vout as u128,
         };
-        let sheet1 = BalanceSheet::load(
+        let sheet1 = load_sheet(
             &tables::RUNES
                 .OUTPOINT_TO_RUNES
                 .select(&consensus_encode(&outpoint_address1).unwrap()),
@@ -258,7 +259,7 @@ mod tests {
         let stored_balance_address1 = sheet1.get(&protorune_id);
         assert_eq!(expected_address1_amount, stored_balance_address1);
 
-        let sheet2 = BalanceSheet::load(
+        let sheet2 = load_sheet(
             &tables::RUNES
                 .OUTPOINT_TO_RUNES
                 .select(&consensus_encode(&outpoint_address2).unwrap()),

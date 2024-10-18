@@ -1,4 +1,4 @@
-use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
+use protorune_support::balance_sheet::{BalanceSheet, ProtoruneRuneId};
 use crate::proto::protorune::{
     BalanceSheet as ProtoBalanceSheet,
     BalanceSheetItem,
@@ -11,15 +11,15 @@ use crate::proto::protorune::{
     RunesResponse,
     WalletResponse,
 };
-use crate::utils::consensus_decode;
-use crate::{proto, tables};
+use protorune_support::utils::{consensus_decode};
+use crate::{balance_sheet::{load_sheet}, proto, tables};
 use anyhow::{anyhow, Result};
 use bitcoin;
 //use bitcoin::consensus::Decodable;
 use bitcoin::hashes::Hash;
 use bitcoin::OutPoint;
 //use hex;
-use metashrew::byte_view::ByteView;
+use metashrew_support::byte_view::ByteView;
 //use metashrew::utils::{ consume_exact, consume_sized_int };
 use metashrew::index_pointer::KeyValuePointer;
 use protobuf::{Message, MessageField, SpecialFields};
@@ -90,7 +90,7 @@ pub fn protorune_outpoint_to_outpoint_response(
     protocol_id: u128,
 ) -> Result<OutpointResponse> {
     let outpoint_bytes = outpoint_to_bytes(outpoint)?;
-    let balance_sheet: BalanceSheet = BalanceSheet::load(
+    let balance_sheet: BalanceSheet = load_sheet(
         &tables::RuneTable::for_protocol(protocol_id)
             .OUTPOINT_TO_RUNES
             .select(&outpoint_bytes),
@@ -133,7 +133,7 @@ pub fn protorune_outpoint_to_outpoint_response(
 pub fn outpoint_to_outpoint_response(outpoint: &OutPoint) -> Result<OutpointResponse> {
     let outpoint_bytes = outpoint_to_bytes(outpoint)?;
     let balance_sheet: BalanceSheet =
-        BalanceSheet::load(&tables::RUNES.OUTPOINT_TO_RUNES.select(&outpoint_bytes));
+        load_sheet(&tables::RUNES.OUTPOINT_TO_RUNES.select(&outpoint_bytes));
     let mut height: u128 = tables::RUNES
         .OUTPOINT_TO_HEIGHT
         .select(&outpoint_bytes)

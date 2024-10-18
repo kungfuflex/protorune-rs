@@ -11,7 +11,7 @@ use std::{
 
 use ordinals::Runestone;
 
-use crate::balance_sheet::{BalanceSheet, ProtoruneRuneId};
+use protorune_support::balance_sheet::{BalanceSheet, ProtoruneRuneId};
 
 #[derive(Clone)]
 pub struct Protoburn {
@@ -21,29 +21,36 @@ pub struct Protoburn {
 }
 
 impl Protoburn {
-    pub fn process(&mut self, atomic: &mut AtomicPointer, balance_sheet: BalanceSheet, proto_balances_by_output: &mut HashMap<u32, BalanceSheet>, outpoint: OutPoint) -> Result<()> {
+    pub fn process(
+        &mut self,
+        atomic: &mut AtomicPointer,
+        balance_sheet: BalanceSheet,
+        proto_balances_by_output: &mut HashMap<u32, BalanceSheet>,
+        outpoint: OutPoint,
+    ) -> Result<()> {
         let table = RuneTable::for_protocol(self.tag.ok_or(anyhow!("no tag found"))?);
         for (rune, _balance) in balance_sheet.clone().balances.into_iter() {
             let name = RUNES.RUNE_ID_TO_ETCHING.select(&rune.into()).get();
             let runeid: Arc<Vec<u8>> = rune.into();
-            atomic.derive(&table.RUNE_ID_TO_ETCHING.select(&runeid)).set(name.clone());
-            atomic.derive(&table.ETCHING_TO_RUNE_ID.select(&name)).set(runeid);
-            atomic.derive(&table
-                .SPACERS
-                .select(&name))
+            atomic
+                .derive(&table.RUNE_ID_TO_ETCHING.select(&runeid))
+                .set(name.clone());
+            atomic
+                .derive(&table.ETCHING_TO_RUNE_ID.select(&name))
+                .set(runeid);
+            atomic
+                .derive(&table.SPACERS.select(&name))
                 .set(RUNES.SPACERS.select(&name).get());
-            atomic.derive(&table
-                .DIVISIBILITY
-                .select(&name))
+            atomic
+                .derive(&table.DIVISIBILITY.select(&name))
                 .set(RUNES.DIVISIBILITY.select(&name).get());
-            atomic.derive(&table
-                .SYMBOL
-                .select(&name))
+            atomic
+                .derive(&table.SYMBOL.select(&name))
                 .set(RUNES.SYMBOL.select(&name).get());
             atomic.derive(&table.ETCHINGS).append(name);
         }
         if !proto_balances_by_output.contains_key(&outpoint.vout) {
-          proto_balances_by_output.insert(outpoint.vout, BalanceSheet::default());
+            proto_balances_by_output.insert(outpoint.vout, BalanceSheet::default());
         }
         balance_sheet.pipe(proto_balances_by_output.get_mut(&outpoint.vout).unwrap());
         Ok(())
@@ -57,7 +64,7 @@ pub trait Protoburns<T>: Deref<Target = [T]> {
     }
     fn process(
         &mut self,
-        atomic: &mut AtomicPointer, 
+        atomic: &mut AtomicPointer,
         runestone: &Runestone,
         runestone_output_index: u32,
         balances_by_output: &HashMap<u32, BalanceSheet>,
@@ -151,7 +158,7 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
                 atomic,
                 sheet,
                 proto_balances_by_output,
-                OutPoint::new(txid, burn.pointer.ok_or(anyhow!("no vout on protoburn"))?)
+                OutPoint::new(txid, burn.pointer.ok_or(anyhow!("no vout on protoburn"))?),
             )?;
         }
         Ok(())
