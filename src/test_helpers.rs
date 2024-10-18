@@ -11,6 +11,8 @@ use ordinals::{Edict, Etching, Rune, RuneId, Runestone};
 use std::fmt::Write;
 use std::sync::Arc;
 
+use crate::protostone::{Protostone, Protostones};
+
 pub const ADDRESS1: &'static str = "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu";
 
 pub fn display_vec_as_hex(data: Vec<u8>) -> String {
@@ -396,81 +398,71 @@ pub fn create_block_with_rune_transfer(
     return (create_block_with_txs(vec![tx0, tx1]), config);
 }
 
-// /// Create a protoburn given an input that holds runes
-// pub fn create_protoburn_transaction(previous_output: OutPoint) {
-//     let input_script = ScriptBuf::new();
+/// Create a protoburn given an input that holds runes
+pub fn create_protoburn_transaction(previous_output: OutPoint, protocol_id: u128) -> Transaction {
+    let input_script = ScriptBuf::new();
 
-//     // Create a transaction input
-//     let txin = TxIn {
-//         previous_output,
-//         script_sig: input_script,
-//         sequence: Sequence::MAX,
-//         witness: Witness::new(),
-//     };
+    // Create a transaction input
+    let txin = TxIn {
+        previous_output,
+        script_sig: input_script,
+        sequence: Sequence::MAX,
+        witness: Witness::new(),
+    };
 
-//     let address: Address<NetworkChecked> = get_address(address1);
+    let address: Address<NetworkChecked> = get_address(&ADDRESS1);
 
-//     let script_pubkey = address.script_pubkey();
+    let script_pubkey = address.script_pubkey();
 
-//     // tx vout 0 will hold all 1000 of the runes
-//     let txout = TxOut {
-//         value: Amount::from_sat(100_000_000).to_sat(),
-//         script_pubkey,
-//     };
+    let txout = TxOut {
+        value: Amount::from_sat(100_000_000).to_sat(),
+        script_pubkey,
+    };
 
-//     let runestone: ScriptBuf = (Runestone {
-//         etching: Some(Etching {
-//             divisibility: Some(2),
-//             premine: Some(1000),
-//             rune: Some(Rune::from_str("TESTTESTTEST").unwrap()),
-//             spacers: Some(0),
-//             symbol: Some(char::from_str("TESTTESTTEST").unwrap()),
-//             turbo: true,
-//             terms: None,
-//         }),
-//         pointer: Some(1),
-//         edicts: Vec::new(),
-//         mint: None,
-//         protocol: match vec![
-//             Protostone {
-//                 burn: Some(0u32),
-//                 edicts: vec![],
-//                 pointer: Some(3),
-//                 refund: None,
-//                 from: None,
-//                 protocol_tag: 1,
-//                 message: vec![],
-//             },
-//             Protostone {
-//                 message: vec![1u8],
-//                 pointer: Some(0),
-//                 refund: Some(0),
-//                 edicts: vec![],
-//                 from: None,
-//                 burn: None,
-//                 protocol_tag: 1,
-//             },
-//         ]
-//         .encipher()
-//         {
-//             Ok(v) => Some(v),
-//             Err(_) => None,
-//         },
-//     })
-//     .encipher();
+    let runestone: ScriptBuf = (Runestone {
+        etching: Some(Etching {
+            divisibility: Some(2),
+            premine: Some(1000),
+            rune: Some(Rune::from_str("TESTTESTTEST").unwrap()),
+            spacers: Some(0),
+            symbol: Some(char::from_str("A").unwrap()),
+            turbo: true,
+            terms: None,
+        }),
+        pointer: Some(1), // points to the OP_RETURN, so therefore targets the protoburn
+        edicts: Vec::new(),
+        mint: None,
+        protocol: match vec![Protostone {
+            // protoburn and give protorunes to output 0
+            burn: Some(protocol_id),
+            edicts: vec![],
+            pointer: Some(0),
+            refund: None,
+            from: None,
+            protocol_tag: 13, // this value must be 13 if protoburn
+            message: vec![],
+        }]
+        .encipher()
+        {
+            Ok(v) => Some(v),
+            Err(_) => None,
+        },
+    })
+    .encipher();
 
-//     let op_return = TxOut {
-//         value: Amount::from_sat(0).to_sat(),
-//         script_pubkey: runestone,
-//     };
+    // op return is at output 1
+    let op_return = TxOut {
+        value: Amount::from_sat(0).to_sat(),
+        script_pubkey: runestone,
+    };
 
-//     Transaction {
-//         version: 1,
-//         lock_time: bitcoin::absolute::LockTime::ZERO,
-//         input: vec![txin],
-//         output: vec![txout, op_return],
-//     }
-// }
+    Transaction {
+        version: 1,
+        lock_time: bitcoin::absolute::LockTime::ZERO,
+        input: vec![txin],
+        output: vec![txout, op_return],
+    }
+}
 
 // pub fn create_block_with_protoburn() {
 //     let config = RunesTestingConfig::new(

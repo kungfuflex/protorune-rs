@@ -69,66 +69,9 @@ mod tests {
         };
         let input_script = ScriptBuf::new();
 
-        // Create a transaction input
-        let txin = TxIn {
-            previous_output,
-            script_sig: input_script,
-            sequence: Sequence::MAX,
-            witness: Witness::new(),
-        };
+        let protoburn_tx = helpers::create_protoburn_transaction(previous_output, protocol_id);
 
-        let address: Address<NetworkChecked> = get_address(&ADDRESS1);
-
-        let script_pubkey = address.script_pubkey();
-
-        let txout = TxOut {
-            value: Amount::from_sat(100_000_000).to_sat(),
-            script_pubkey,
-        };
-
-        let runestone: ScriptBuf = (Runestone {
-            etching: Some(Etching {
-                divisibility: Some(2),
-                premine: Some(1000),
-                rune: Some(Rune::from_str("TESTTESTTEST").unwrap()),
-                spacers: Some(0),
-                symbol: Some(char::from_str("A").unwrap()),
-                turbo: true,
-                terms: None,
-            }),
-            pointer: Some(1), // points to the OP_RETURN, so therefore targets the protoburn
-            edicts: Vec::new(),
-            mint: None,
-            protocol: match vec![Protostone {
-                // protoburn and give protorunes to output 0
-                burn: Some(protocol_id),
-                edicts: vec![],
-                pointer: Some(0),
-                refund: None,
-                from: None,
-                protocol_tag: 13, // this value must be 13 if protoburn
-                message: vec![],
-            }]
-            .encipher()
-            {
-                Ok(v) => Some(v),
-                Err(_) => None,
-            },
-        })
-        .encipher();
-
-        // op return is at output 1
-        let op_return = TxOut {
-            value: Amount::from_sat(0).to_sat(),
-            script_pubkey: runestone,
-        };
-
-        test_block.txdata.push(Transaction {
-            version: 1,
-            lock_time: bitcoin::absolute::LockTime::ZERO,
-            input: vec![txin],
-            output: vec![txout, op_return],
-        });
+        test_block.txdata.push(protoburn_tx);
         assert!(Protorune::index_block::<TestMessageContext>(
             test_block.clone(),
             block_height as u64

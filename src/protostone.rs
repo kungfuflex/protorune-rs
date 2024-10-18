@@ -159,7 +159,7 @@ pub fn to_fields(values: &Vec<u128>) -> HashMap<u128, Vec<u128>> {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Protostone {
-    pub burn: Option<u32>,
+    pub burn: Option<u128>,
     pub message: Vec<u8>,
     pub edicts: Vec<ProtostoneEdict>,
     pub refund: Option<u32>,
@@ -341,7 +341,7 @@ impl Protostone {
     }
     pub fn from_fields_and_tag(map: &HashMap<u128, Vec<u128>>, protocol_tag: u128) -> Result<Self> {
         Ok(Protostone {
-            burn: map.get(&Tag::Burn.into()).map(|v| v[0] as u32),
+            burn: map.get(&Tag::Burn.into()).map(|v| v[0] as u128),
             message: join_to_bytes(
                 &map.get(&Tag::Message.into())
                     .map(|v| v.clone())
@@ -515,7 +515,7 @@ mod tests {
     #[test]
     fn test_protostone_encipher_burn() {
         let protostones = vec![Protostone {
-            burn: Some(1u32),
+            burn: Some(1u128),
             edicts: vec![],
             pointer: Some(3),
             refund: None,
@@ -534,7 +534,7 @@ mod tests {
     #[test]
     fn test_protostone_encipher_edict() {
         let protostones = vec![Protostone {
-            burn: Some(0u32),
+            burn: Some(0u128),
             edicts: vec![ProtostoneEdict {
                 id: ProtoruneRuneId {
                     block: 8400000,
@@ -580,7 +580,7 @@ mod tests {
     fn test_protostone_encipher_multiple_protostones() {
         let protostones = vec![
             Protostone {
-                burn: Some(1u32),
+                burn: Some(1u128),
                 edicts: vec![],
                 pointer: Some(3),
                 refund: None,
@@ -589,7 +589,7 @@ mod tests {
                 message: vec![],
             },
             Protostone {
-                burn: Some(1u32),
+                burn: Some(1u128),
                 edicts: vec![],
                 pointer: Some(2),
                 refund: None,
