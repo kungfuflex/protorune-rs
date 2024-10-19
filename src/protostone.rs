@@ -462,7 +462,7 @@ impl Protostones for Vec<Protostone> {
         let mut burns = self.burns()?;
         burns.process(
             atomic,
-            runestone,
+            runestone.edicts.clone(),
             runestone_output_index,
             balances_by_output,
             proto_balances_by_output,

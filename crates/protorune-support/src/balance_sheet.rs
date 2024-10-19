@@ -180,7 +180,12 @@ impl BalanceSheet {
         }
         concatenated
     }
+}
 
+impl PartialEq for BalanceSheet {
+    fn eq(&self, other: &Self) -> bool {
+        self.balances == other.balances
+    }
 }
 
 impl From<Vec<RuneTransfer>> for BalanceSheet {

@@ -9,7 +9,7 @@ use std::{
     sync::Arc,
 };
 
-use ordinals::Runestone;
+use ordinals::{Edict, Runestone};
 
 use protorune_support::balance_sheet::{BalanceSheet, ProtoruneRuneId};
 
@@ -65,7 +65,7 @@ pub trait Protoburns<T>: Deref<Target = [T]> {
     fn process(
         &mut self,
         atomic: &mut AtomicPointer,
-        runestone: &Runestone,
+        runestone_edicts: Vec<Edict>,
         runestone_output_index: u32,
         balances_by_output: &HashMap<u32, BalanceSheet>,
         proto_balances_by_output: &mut HashMap<u32, BalanceSheet>,
@@ -78,7 +78,7 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
     fn process(
         &mut self,
         atomic: &mut AtomicPointer,
-        runestone: &Runestone,
+        runestone_edicts: Vec<Edict>,
         runestone_output_index: u32,
         balances_by_output: &HashMap<u32, BalanceSheet>,
         proto_balances_by_output: &mut HashMap<u32, BalanceSheet>,
@@ -94,21 +94,22 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
         }
         //TODO: pipe stuff into runestone_balance_sheet
         let mut burn_cycles = self.construct_burncycle()?;
-        let edicts = runestone.edicts.clone();
         let mut pull_set = HashMap::<u32, bool>::new();
         let mut burn_sheets = self
             .into_iter()
             .map(|_a| BalanceSheet::new())
             .collect::<Vec<BalanceSheet>>();
+
+        // from field in Protoburn is provided, which means the burn doesn't cycle through the inputs, just pulls the inputs from the "from" field and burns those
         for (i, burn) in self.into_iter().enumerate() {
             if let Some(_from) = burn.clone().from {
                 let from = _from.into_iter().collect::<HashSet<u32>>();
                 for j in from {
                     pull_set.insert(j, true);
-                    if edicts[j as usize].output == runestone_output_index {
-                        let rune = edicts[j as usize].id;
+                    if runestone_edicts[j as usize].output == runestone_output_index {
+                        let rune = runestone_edicts[j as usize].id;
                         let remaining = runestone_balance_sheet.get(&rune.into());
-                        let to_apply = min(remaining, edicts[j as usize].amount);
+                        let to_apply = min(remaining, runestone_edicts[j as usize].amount);
                         if to_apply == 0 {
                             continue;
                         }
@@ -119,7 +120,8 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
             }
         }
 
-        for (i, edict) in edicts.into_iter().enumerate() {
+        // go through remaining edicts and cycle through protoburns
+        for (i, edict) in runestone_edicts.into_iter().enumerate() {
             if pull_set.contains_key(&(i as u32)) {
                 continue;
             };
@@ -196,5 +198,276 @@ impl BurnCycle {
             .get(rune)
             .ok_or(anyhow!("value not found"))?
             .clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::protostone::{Protostone, Protostones};
+
+    use super::*;
+    use bitcoin::hashes::Hash;
+    use bitcoin::OutPoint;
+    use metashrew::index_pointer::AtomicPointer;
+    use ordinals::{Etching, Rune, RuneId, Runestone};
+    use protorune_support::balance_sheet::ProtoruneRuneId;
+    use std::collections::HashMap;
+    use std::str::FromStr;
+    use std::sync::Arc;
+
+    #[test]
+    fn test_protoburn_process_success() {
+        // Create a dummy Protoburn instance
+        let mut protoburn = Protoburn {
+            tag: Some(13),
+            pointer: Some(0),
+            from: None,
+        };
+
+        // Create mock objects for dependencies
+        let mut atomic = AtomicPointer::default();
+        let balance_sheet = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![100 as u128, 200 as u128],
+        );
+        let mut proto_balances_by_output = HashMap::new();
+        let outpoint = OutPoint {
+            txid: Hash::from_byte_array([
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+                23, 1, 1, 1, 1, 1, 1, 1, 1,
+            ]),
+            vout: 0,
+        };
+
+        // Call the process function
+        let result = protoburn.process(
+            &mut atomic,
+            balance_sheet.clone(),
+            &mut proto_balances_by_output,
+            outpoint,
+        );
+
+        // Assert that the function executed without errors
+        assert!(result.is_ok());
+
+        // Verify that proto_balances_by_output contains the expected data
+        assert!(proto_balances_by_output.contains_key(&outpoint.vout));
+
+        assert_eq!(proto_balances_by_output[&outpoint.vout], balance_sheet);
+    }
+
+    #[test]
+    fn test_protoburn_process_no_tag() {
+        // Create a Protoburn instance without a tag
+        let mut protoburn = Protoburn {
+            tag: None,
+            pointer: Some(0),
+            from: None,
+        };
+
+        // Create mock objects for dependencies
+        let mut atomic = AtomicPointer::default();
+        let balance_sheet = BalanceSheet::new();
+        let mut proto_balances_by_output = HashMap::new();
+        let outpoint = OutPoint {
+            txid: Hash::from_byte_array([
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+                23, 1, 1, 1, 1, 1, 1, 1, 1,
+            ]),
+            vout: 0,
+        };
+
+        // Call the process function
+        let result = protoburn.process(
+            &mut atomic,
+            balance_sheet,
+            &mut proto_balances_by_output,
+            outpoint,
+        );
+
+        // Assert that the function returns an error due to missing tag
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_protoburns_no_op() {
+        // Create a Vec of Protoburns
+        let mut protoburns: Vec<Protoburn> = vec![
+            Protoburn {
+                tag: Some(1),
+                pointer: Some(0),
+                from: None,
+            },
+            Protoburn {
+                tag: Some(2),
+                pointer: Some(1),
+                from: None,
+            },
+        ];
+
+        // Create mock objects for dependencies
+        let mut atomic = AtomicPointer::default();
+        let balances_by_output = HashMap::new();
+        let mut proto_balances_by_output = HashMap::new();
+        let txid = Hash::from_byte_array([
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            1, 1, 1, 1, 1, 1, 1, 1,
+        ]);
+        let edicts = Vec::new();
+
+        // Call the process function
+        let result = protoburns.process(
+            &mut atomic,
+            edicts,
+            1,
+            &balances_by_output,
+            &mut proto_balances_by_output,
+            0,
+            txid,
+        );
+
+        // Assert that the function executed successfully
+        assert!(result.is_ok());
+        assert_eq!(proto_balances_by_output[&0], BalanceSheet::new());
+        assert_eq!(proto_balances_by_output[&1], BalanceSheet::new());
+    }
+
+    #[test]
+    fn test_protoburns_default_goes_to_first_protoburn() {
+        // Create a Vec of Protoburns
+        let mut protoburns: Vec<Protoburn> = vec![
+            Protoburn {
+                tag: Some(1),
+                pointer: Some(0),
+                from: None,
+            },
+            Protoburn {
+                tag: Some(2),
+                pointer: Some(1),
+                from: None,
+            },
+        ];
+
+        // Create mock objects for dependencies
+        let mut atomic = AtomicPointer::default();
+        let balance_sheet_0 = BalanceSheet::from_pairs(
+            // runestone output index is set as 1, so this should be ignored by protoburns since this is just a transfer of runes directly to an output instead of to the OP_RETURN
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![100 as u128, 200 as u128],
+        );
+        let balance_sheet_1 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![300 as u128, 400 as u128],
+        );
+        let balances_by_output =
+            HashMap::from([(0, balance_sheet_0.clone()), (1, balance_sheet_1.clone())]);
+        let mut proto_balances_by_output = HashMap::new();
+        let txid = Hash::from_byte_array([
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            1, 1, 1, 1, 1, 1, 1, 1,
+        ]);
+        let edicts = Vec::new();
+
+        // Call the process function
+        let result = protoburns.process(
+            &mut atomic,
+            edicts,
+            1,
+            &balances_by_output,
+            &mut proto_balances_by_output,
+            1,
+            txid,
+        );
+
+        // Assert that the function executed successfully
+        assert!(result.is_ok());
+        assert_eq!(proto_balances_by_output[&0], balance_sheet_1.clone());
+        assert_eq!(proto_balances_by_output[&1], BalanceSheet::new());
+    }
+
+    #[test]
+    fn test_protoburns_edicts_cycle() {
+        // Create a Vec of Protoburns
+        let mut protoburns: Vec<Protoburn> = vec![
+            Protoburn {
+                tag: Some(13),
+                pointer: Some(0),
+                from: None,
+            },
+            Protoburn {
+                tag: Some(13),
+                pointer: Some(1),
+                from: None,
+            },
+        ];
+
+        let runestone_output_index = 1;
+
+        // Create mock objects for dependencies
+        let mut atomic = AtomicPointer::default();
+        let balance_sheet_0 = BalanceSheet::from_pairs(
+            // runestone output index is set as 1, so this should be ignored by protoburns since this is just a transfer of runes directly to an output instead of to the OP_RETURN
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![100 as u128, 200 as u128],
+        );
+        let balance_sheet_1 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![300 as u128, 400 as u128],
+        );
+        let balances_by_output = HashMap::from([
+            (0, balance_sheet_0.clone()),
+            (runestone_output_index, balance_sheet_1.clone()),
+        ]);
+        let mut proto_balances_by_output = HashMap::new();
+        let txid = Hash::from_byte_array([
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            1, 1, 1, 1, 1, 1, 1, 1,
+        ]);
+        let edicts = vec![Edict {
+            id: RuneId { block: 1, tx: 1 },
+            amount: 10,
+            output: runestone_output_index,
+        }];
+
+        // Call the process function
+        let result = protoburns.process(
+            &mut atomic,
+            edicts,
+            runestone_output_index,
+            &balances_by_output,
+            &mut proto_balances_by_output,
+            runestone_output_index,
+            txid,
+        );
+
+        // Assert that the function executed successfully
+        assert!(result.is_ok());
+
+        let expected_sheet_0 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![10 as u128, 400 as u128],
+        );
+        let expected_sheet_1 =
+            BalanceSheet::from_pairs(vec![ProtoruneRuneId { block: 1, tx: 1 }], vec![290 as u128]);
+        assert_eq!(proto_balances_by_output[&0], expected_sheet_0);
+        assert_eq!(proto_balances_by_output[&1], expected_sheet_1);
     }
 }
