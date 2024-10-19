@@ -29,6 +29,15 @@ pub fn decode_varint_list(cursor: &mut std::io::Cursor<Vec<u8>>) -> Result<Vec<u
     Ok(result)
 }
 
+/// returns the values in a LEB encoded stream
+pub fn encode_varint_list(values: &Vec<u128>) -> Vec<u8> {
+    let mut result = Vec::<u8>::new();
+    for value in values {
+        varint::encode_to_vec(*value, &mut result);
+    }
+    result
+}
+
 pub fn field_to_name(data: &u128) -> String {
     let mut v = data + 1; // Increment by 1
     let mut result = String::new();

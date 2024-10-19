@@ -1,17 +1,17 @@
 #[cfg(test)]
 mod tests {
-    use protorune_support::balance_sheet::{BalanceSheet, ProtoruneRuneId};
-    use protorune::balance_sheet::{load_sheet};
     use crate::message::MessageContext;
     use crate::proto::protorune::{RunesByHeightRequest, WalletRequest};
+    use protorune::balance_sheet::load_sheet;
+    use protorune_support::balance_sheet::{BalanceSheet, ProtoruneRuneId};
 
-    use protorune_support::rune_transfer::RuneTransfer;
     use crate::test_helpers as helpers;
     use crate::test_helpers::{display_list_as_hex, display_vec_as_hex};
-    use protorune_support::utils::consensus_encode;
     use crate::Protorune;
     use crate::{message::MessageContextParcel, tables, view};
     use anyhow::Result;
+    use protorune_support::rune_transfer::RuneTransfer;
+    use protorune_support::utils::consensus_encode;
 
     use bitcoin::consensus::serialize;
     use bitcoin::hashes::Hash;

@@ -1,12 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use protorune::balance_sheet::{load_sheet};
-    use protorune_support::balance_sheet::{BalanceSheet, ProtoruneRuneId};
     use crate::message::{MessageContext, MessageContextParcel};
     use crate::protostone::{Protostone, Protostones};
-    use protorune_support::rune_transfer::RuneTransfer;
     use crate::test_helpers::{self as helpers, get_address, ADDRESS1};
-    use protorune_support::utils::consensus_encode;
     use crate::{tables, Protorune};
     use anyhow::Result;
     use bitcoin::Transaction;
@@ -14,11 +10,13 @@ mod tests {
         address::NetworkChecked, Address, Amount, OutPoint, ScriptBuf, Sequence, TxIn, TxOut,
         Witness,
     };
+    use protorune::balance_sheet::load_sheet;
+    use protorune_support::balance_sheet::{BalanceSheet, ProtoruneRuneId};
+    use protorune_support::rune_transfer::RuneTransfer;
+    use protorune_support::utils::consensus_encode;
 
-    use metashrew::{
-        clear, get_cache, index_pointer::KeyValuePointer, println, stdio::stdout,
-    };
-    use metashrew_support::utils::{format_key};
+    use metashrew::{clear, get_cache, index_pointer::KeyValuePointer, println, stdio::stdout};
+    use metashrew_support::utils::format_key;
     use ordinals::{Etching, Rune, Runestone};
     use std::fmt::Write;
     use std::str::FromStr;
@@ -172,7 +170,7 @@ mod tests {
                     message: vec![],
                 },
                 Protostone {
-                    //                 // protomessage which should transfer protorunes to the pointer
+                    // protomessage which should transfer protorunes to the pointer
                     message: vec![1u8],
                     pointer: Some(0),
                     refund: Some(0),
@@ -208,12 +206,12 @@ mod tests {
         )
         .is_ok());
 
-        //     // tx 0 is coinbase, tx 1 is runestone
+        // tx 0 is coinbase, tx 1 is runestone
         let outpoint_address: OutPoint = OutPoint {
             txid: test_block.txdata[1].txid(),
             vout: 0,
         };
-        //     // check runes balance
+        // check runes balance
         let sheet = load_sheet(
             &tables::RUNES
                 .OUTPOINT_TO_RUNES

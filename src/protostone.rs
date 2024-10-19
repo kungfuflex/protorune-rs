@@ -1,8 +1,3 @@
-use protorune_support::{
-    balance_sheet::{BalanceSheet, ProtoruneRuneId},
-    byte_utils::ByteUtils,
-    rune_transfer::{OutgoingRunes, RuneTransfer}
-};
 use crate::{
     message::{MessageContext, MessageContextParcel},
     protoburn::{Protoburn, Protoburns},
@@ -10,7 +5,13 @@ use crate::{
 use anyhow::{anyhow, Result};
 use bitcoin::{Block, Transaction, Txid};
 use metashrew::index_pointer::{AtomicPointer, IndexPointer};
-use ordinals::{runestone::tag::Tag, varint, Edict, RuneId, Runestone};
+use ordinals::{runestone::tag::Tag, Edict, RuneId, Runestone};
+use protorune_support::{
+    balance_sheet::{BalanceSheet, ProtoruneRuneId},
+    byte_utils::ByteUtils,
+    rune_transfer::{OutgoingRunes, RuneTransfer},
+    utils::encode_varint_list,
+};
 use std::collections::{HashMap, HashSet};
 
 static mut PROTOCOLS: Option<HashSet<u128>> = None;
@@ -424,15 +425,6 @@ pub trait Protostones {
         txid: Txid,
     ) -> Result<()>;
     fn encipher(&self) -> Result<Vec<u128>>;
-}
-
-/// returns the values in a LEB encoded stream
-pub fn encode_varint_list(values: &Vec<u128>) -> Vec<u8> {
-    let mut result = Vec::<u8>::new();
-    for value in values {
-        varint::encode_to_vec(*value, &mut result);
-    }
-    result
 }
 
 impl Protostones for Vec<Protostone> {
