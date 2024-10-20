@@ -106,7 +106,12 @@ impl Protoburns<Protoburn> for Vec<Protoburn> {
                 let from = _from.into_iter().collect::<HashSet<u32>>();
                 for j in from {
                     pull_set.insert(j, true);
-                    if runestone_edicts[j as usize].output == runestone_output_index {
+                    if runestone_edicts
+                        .get(j as usize)
+                        .ok_or(anyhow!("Index {} is out of bounds", j))?
+                        .output
+                        == runestone_output_index
+                    {
                         let rune = runestone_edicts[j as usize].id;
                         let remaining = runestone_balance_sheet.get(&rune.into());
                         let to_apply = min(remaining, runestone_edicts[j as usize].amount);
@@ -203,17 +208,13 @@ impl BurnCycle {
 
 #[cfg(test)]
 mod tests {
-    use crate::protostone::{Protostone, Protostones};
-
     use super::*;
     use bitcoin::hashes::Hash;
     use bitcoin::OutPoint;
     use metashrew::index_pointer::AtomicPointer;
-    use ordinals::{Etching, Rune, RuneId, Runestone};
+    use ordinals::RuneId;
     use protorune_support::balance_sheet::ProtoruneRuneId;
     use std::collections::HashMap;
-    use std::str::FromStr;
-    use std::sync::Arc;
 
     #[test]
     fn test_protoburn_process_success() {
@@ -467,6 +468,446 @@ mod tests {
         );
         let expected_sheet_1 =
             BalanceSheet::from_pairs(vec![ProtoruneRuneId { block: 1, tx: 1 }], vec![290 as u128]);
+        assert_eq!(proto_balances_by_output[&0], expected_sheet_0);
+        assert_eq!(proto_balances_by_output[&1], expected_sheet_1);
+    }
+
+    #[test]
+    fn test_protoburns_edicts_cycle_two_runes() {
+        // Create a Vec of Protoburns
+        let mut protoburns: Vec<Protoburn> = vec![
+            Protoburn {
+                tag: Some(13),
+                pointer: Some(0),
+                from: None,
+            },
+            Protoburn {
+                tag: Some(13),
+                pointer: Some(1),
+                from: None,
+            },
+        ];
+
+        let runestone_output_index = 1;
+
+        // Create mock objects for dependencies
+        let mut atomic = AtomicPointer::default();
+        let balance_sheet_0 = BalanceSheet::from_pairs(
+            // runestone output index is set as 1, so this should be ignored by protoburns since this is just a transfer of runes directly to an output instead of to the OP_RETURN
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![100 as u128, 200 as u128],
+        );
+        let balance_sheet_1 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![300 as u128, 400 as u128],
+        );
+        let balances_by_output = HashMap::from([
+            (0, balance_sheet_0.clone()),
+            (runestone_output_index, balance_sheet_1.clone()),
+        ]);
+        let mut proto_balances_by_output = HashMap::new();
+        let txid = Hash::from_byte_array([
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            1, 1, 1, 1, 1, 1, 1, 1,
+        ]);
+        let edicts = vec![
+            Edict {
+                id: RuneId { block: 1, tx: 1 },
+                amount: 10,
+                output: runestone_output_index,
+            },
+            Edict {
+                id: RuneId { block: 2, tx: 2 },
+                amount: 10,
+                output: runestone_output_index,
+            },
+        ];
+
+        // Call the process function
+        let result = protoburns.process(
+            &mut atomic,
+            edicts,
+            runestone_output_index,
+            &balances_by_output,
+            &mut proto_balances_by_output,
+            runestone_output_index,
+            txid,
+        );
+
+        // Assert that the function executed successfully
+        assert!(result.is_ok());
+        println!("result: {:?}", proto_balances_by_output);
+        let expected_sheet_0 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![10 as u128, 10 as u128],
+        );
+        let expected_sheet_1 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![290 as u128, 390 as u128],
+        );
+        assert_eq!(proto_balances_by_output[&0], expected_sheet_0);
+        assert_eq!(proto_balances_by_output[&1], expected_sheet_1);
+    }
+
+    #[test]
+    fn test_protoburns_edicts_cycle_loopback() {
+        // Create a Vec of Protoburns
+        let mut protoburns: Vec<Protoburn> = vec![
+            Protoburn {
+                tag: Some(13),
+                pointer: Some(0),
+                from: None,
+            },
+            Protoburn {
+                tag: Some(13),
+                pointer: Some(1),
+                from: None,
+            },
+        ];
+
+        let runestone_output_index = 1;
+
+        // Create mock objects for dependencies
+        let mut atomic = AtomicPointer::default();
+        let balance_sheet_0 = BalanceSheet::from_pairs(
+            // runestone output index is set as 1, so this should be ignored by protoburns since this is just a transfer of runes directly to an output instead of to the OP_RETURN
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![100 as u128, 200 as u128],
+        );
+        let balance_sheet_1 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![300 as u128, 400 as u128],
+        );
+        let balances_by_output = HashMap::from([
+            (0, balance_sheet_0.clone()),
+            (runestone_output_index, balance_sheet_1.clone()),
+        ]);
+        let mut proto_balances_by_output = HashMap::new();
+        let txid = Hash::from_byte_array([
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            1, 1, 1, 1, 1, 1, 1, 1,
+        ]);
+        let edicts = vec![
+            Edict {
+                id: RuneId { block: 1, tx: 1 },
+                amount: 10,
+                output: runestone_output_index,
+            },
+            Edict {
+                id: RuneId { block: 2, tx: 2 },
+                amount: 10,
+                output: runestone_output_index,
+            },
+            Edict {
+                id: RuneId { block: 1, tx: 1 },
+                amount: 20,
+                output: runestone_output_index,
+            },
+        ];
+
+        // Call the process function
+        let result = protoburns.process(
+            &mut atomic,
+            edicts,
+            runestone_output_index,
+            &balances_by_output,
+            &mut proto_balances_by_output,
+            runestone_output_index,
+            txid,
+        );
+
+        // Assert that the function executed successfully
+        assert!(result.is_ok());
+        println!("result: {:?}", proto_balances_by_output);
+        let expected_sheet_0 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![280 as u128, 10 as u128],
+        );
+        let expected_sheet_1 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![20 as u128, 390 as u128],
+        );
+        assert_eq!(proto_balances_by_output[&0], expected_sheet_0);
+        assert_eq!(proto_balances_by_output[&1], expected_sheet_1);
+    }
+
+    #[test]
+    fn test_protoburns_edicts_from_invalid() {
+        // Create a Vec of Protoburns
+        let mut protoburns: Vec<Protoburn> = vec![
+            Protoburn {
+                tag: Some(13),
+                pointer: Some(0),
+                from: Some(vec![5]),
+            },
+            Protoburn {
+                tag: Some(13),
+                pointer: Some(1),
+                from: None,
+            },
+        ];
+
+        let runestone_output_index = 1;
+
+        // Create mock objects for dependencies
+        let mut atomic = AtomicPointer::default();
+        let balance_sheet_0 = BalanceSheet::from_pairs(
+            // runestone output index is set as 1, so this should be ignored by protoburns since this is just a transfer of runes directly to an output instead of to the OP_RETURN
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![100 as u128, 200 as u128],
+        );
+        let balance_sheet_1 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![300 as u128, 400 as u128],
+        );
+        let balances_by_output = HashMap::from([
+            (0, balance_sheet_0.clone()),
+            (runestone_output_index, balance_sheet_1.clone()),
+        ]);
+        let mut proto_balances_by_output = HashMap::new();
+        let txid = Hash::from_byte_array([
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            1, 1, 1, 1, 1, 1, 1, 1,
+        ]);
+        let edicts = vec![
+            Edict {
+                id: RuneId { block: 1, tx: 1 },
+                amount: 10,
+                output: runestone_output_index,
+            },
+            Edict {
+                id: RuneId { block: 2, tx: 2 },
+                amount: 10,
+                output: runestone_output_index,
+            },
+            Edict {
+                id: RuneId { block: 1, tx: 1 },
+                amount: 20,
+                output: runestone_output_index,
+            },
+        ];
+
+        // Call the process function
+        let result = protoburns.process(
+            &mut atomic,
+            edicts,
+            runestone_output_index,
+            &balances_by_output,
+            &mut proto_balances_by_output,
+            runestone_output_index,
+            txid,
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_protoburns_edicts_from() {
+        // Create a Vec of Protoburns
+        let mut protoburns: Vec<Protoburn> = vec![
+            Protoburn {
+                tag: Some(13),
+                pointer: Some(0),
+                from: Some(vec![0, 1]),
+            },
+            Protoburn {
+                tag: Some(13),
+                pointer: Some(1),
+                from: Some(vec![2]),
+            },
+        ];
+
+        let runestone_output_index = 1;
+
+        // Create mock objects for dependencies
+        let mut atomic = AtomicPointer::default();
+        let balance_sheet_0 = BalanceSheet::from_pairs(
+            // runestone output index is set as 1, so this should be ignored by protoburns since this is just a transfer of runes directly to an output instead of to the OP_RETURN
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![100 as u128, 200 as u128],
+        );
+        let balance_sheet_1 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![300 as u128, 400 as u128],
+        );
+        let balances_by_output = HashMap::from([
+            (0, balance_sheet_0.clone()),
+            (runestone_output_index, balance_sheet_1.clone()),
+        ]);
+        let mut proto_balances_by_output = HashMap::new();
+        let txid = Hash::from_byte_array([
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            1, 1, 1, 1, 1, 1, 1, 1,
+        ]);
+        let edicts = vec![
+            Edict {
+                id: RuneId { block: 1, tx: 1 },
+                amount: 10,
+                output: runestone_output_index,
+            },
+            Edict {
+                id: RuneId { block: 2, tx: 2 },
+                amount: 10,
+                output: runestone_output_index,
+            },
+            Edict {
+                id: RuneId { block: 1, tx: 1 },
+                amount: 20,
+                output: runestone_output_index,
+            },
+        ];
+
+        // Call the process function
+        let result = protoburns.process(
+            &mut atomic,
+            edicts,
+            runestone_output_index,
+            &balances_by_output,
+            &mut proto_balances_by_output,
+            runestone_output_index,
+            txid,
+        );
+
+        assert!(result.is_ok());
+        println!("result: {:?}", proto_balances_by_output);
+        let expected_sheet_0 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![280 as u128, 400 as u128],
+        );
+        let expected_sheet_1 =
+            BalanceSheet::from_pairs(vec![ProtoruneRuneId { block: 1, tx: 1 }], vec![20 as u128]);
+        assert_eq!(proto_balances_by_output[&0], expected_sheet_0);
+        assert_eq!(proto_balances_by_output[&1], expected_sheet_1);
+    }
+
+    #[test]
+    fn test_protoburns_edicts_from_cycle() {
+        // Create a Vec of Protoburns
+        let mut protoburns: Vec<Protoburn> = vec![
+            Protoburn {
+                tag: Some(13),
+                pointer: Some(0),
+                from: Some(vec![0]),
+            },
+            Protoburn {
+                tag: Some(13),
+                pointer: Some(1),
+                from: Some(vec![2]),
+            },
+        ];
+
+        let runestone_output_index = 1;
+
+        // Create mock objects for dependencies
+        let mut atomic = AtomicPointer::default();
+        let balance_sheet_0 = BalanceSheet::from_pairs(
+            // runestone output index is set as 1, so this should be ignored by protoburns since this is just a transfer of runes directly to an output instead of to the OP_RETURN
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![100 as u128, 200 as u128],
+        );
+        let balance_sheet_1 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![300 as u128, 400 as u128],
+        );
+        let balances_by_output = HashMap::from([
+            (0, balance_sheet_0.clone()),
+            (runestone_output_index, balance_sheet_1.clone()),
+        ]);
+        let mut proto_balances_by_output = HashMap::new();
+        let txid = Hash::from_byte_array([
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            1, 1, 1, 1, 1, 1, 1, 1,
+        ]);
+        let edicts = vec![
+            Edict {
+                id: RuneId { block: 1, tx: 1 },
+                amount: 10,
+                output: runestone_output_index,
+            },
+            Edict {
+                id: RuneId { block: 2, tx: 2 },
+                amount: 10,
+                output: runestone_output_index,
+            },
+            Edict {
+                id: RuneId { block: 1, tx: 1 },
+                amount: 20,
+                output: runestone_output_index,
+            },
+        ];
+
+        // Call the process function
+        let result = protoburns.process(
+            &mut atomic,
+            edicts,
+            runestone_output_index,
+            &balances_by_output,
+            &mut proto_balances_by_output,
+            runestone_output_index,
+            txid,
+        );
+
+        assert!(result.is_ok());
+        println!("result: {:?}", proto_balances_by_output);
+        let expected_sheet_0 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![280 as u128, 10 as u128],
+        );
+        let expected_sheet_1 = BalanceSheet::from_pairs(
+            vec![
+                ProtoruneRuneId { block: 1, tx: 1 },
+                ProtoruneRuneId { block: 2, tx: 2 },
+            ],
+            vec![20 as u128, 390 as u128],
+        );
         assert_eq!(proto_balances_by_output[&0], expected_sheet_0);
         assert_eq!(proto_balances_by_output[&1], expected_sheet_1);
     }
