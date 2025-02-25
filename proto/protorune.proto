@@ -45,6 +45,7 @@ message OutpointResponse {
   Output output = 3;
   uint32 height = 4;
   uint32 txindex = 5;
+  bytes address = 6;
 }
 
 message PaginationInput {
@@ -64,6 +65,11 @@ message WalletResponse {
 message ProtorunesWalletRequest {
   bytes wallet = 1;
   bytes protocol_tag = 2;
+}
+
+message ProtoruneHoldersRequest {
+  bytes protocol_tag = 1;
+  RuneId id = 2;
 }
 
 message RunesByHeightRequest {
