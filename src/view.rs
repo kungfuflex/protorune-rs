@@ -253,56 +253,42 @@ pub fn protorune_holders(input: &Vec<u8>) -> Result<WalletResponse> {
             tables::RUNES.clone()
         };
 
-        // The structure we're using is:
-        // Key: rune_id string
-        // Value: list of outpoint bytes
-
-        // Get all outpoints for this rune ID
         let outpoints_list = table.RUNE_OUTPOINT_MAPPING
             .select(&rune_id_str.into_bytes())
             .get_list();
 
-        // Process each outpoint
         result.outpoints = outpoints_list
             .into_iter()
             .filter_map(|outpoint_bytes_arc| {
-                // Check if this outpoint is active by checking its balance
                 let mut cursor = Cursor::new(outpoint_bytes_arc.as_ref().clone());
 
                 match consensus_decode::<OutPoint>(&mut cursor) {
                     Ok(outpoint) => {
-                        // Convert outpoint to bytes format for lookup
                         match outpoint_to_bytes(&outpoint) {
                             Ok(outpoint_bytes) => {
-                                // Get the balance sheet for this outpoint
                                 let sheet = load_sheet(
                                     &AtomicPointer::default().derive(
                                         &table.OUTPOINT_TO_RUNES.select(&outpoint_bytes)
                                     )
                                 );
 
-                                // Check if this outpoint has a positive balance of the rune
                                 let protorune_id = ProtoruneRuneId {
                                     block: u128::from(rune_id.height),
                                     tx: u128::from(rune_id.txindex),
                                 };
                                 let balance = sheet.get(&protorune_id);
 
-                                // Only include outpoints with positive balances
                                 if balance > 0 {
-                                    // Get the address that can spend this outpoint
                                     let address = tables::OUTPOINT_SPENDABLE_BY
                                         .select(&outpoint_bytes)
                                         .get();
 
-                                    // Create response
                                     let response = protorune_outpoint_to_outpoint_response(
                                         &outpoint,
                                         protocol_tag
                                     );
 
                                     if let Ok(mut resp) = response {
-                                        // Check if address Arc is empty or not
                                         if !address.is_empty() {
                                             if
                                                 let Ok(address_str) = String::from_utf8(
@@ -317,7 +303,7 @@ pub fn protorune_holders(input: &Vec<u8>) -> Result<WalletResponse> {
                                         Some(response)
                                     }
                                 } else {
-                                    None // Skip outpoints with zero balance
+                                    None
                                 }
                             }
                             Err(e) => Some(Err(e)),
